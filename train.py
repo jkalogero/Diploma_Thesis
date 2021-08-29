@@ -108,50 +108,50 @@ for arg in vars(args):
 #   SETUP DATASET, DATALOADER, MODEL, CRITERION, OPTIMIZER, SCHEDULER
 # ================================================================================================
 
-# train_dataset = VisDialDataset(
-#     config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
-# )
-# train_dataloader = DataLoader(
-#     train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
-# )
+train_dataset = VisDialDataset(
+    config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
+)
+train_dataloader = DataLoader(
+    train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
+)
 
-# val_dataset = VisDialDataset(
-#     config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
-#     in_memory=args.in_memory
-# )
-# val_dataloader = DataLoader(
-#     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
-# )
-
-
-# # Read GloVe word embedding data
-# with open(config["dataset"]["glovepath"], "r") as glove_file:
-#     glove = json.load(glove_file)
-# glovevocabulary = Vocabulary(
-#     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
-# )
-# KAT = []
-# for key in glove.keys():
-#     keylist = [key]
-#     token = glovevocabulary.to_indices(keylist)
-#     key_and_token = keylist + token
-#     KAT.append(key_and_token)
-# glove_token = {}
-# for item in KAT:
-#     glove_token[item[1]] = glove[item[0]]
-
-# glove_list = []
-# for i in range(len(glovevocabulary)):
-#     if i in glove_token.keys():
-#         glove_list.append(glove_token[i])
-#     else:
-#         randArray = random.random(size=(1, 300)).tolist()
-#         glove_list.append(randArray[0])
-# glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+val_dataset = VisDialDataset(
+    config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
+    in_memory=args.in_memory
+)
+val_dataloader = DataLoader(
+    val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
+)
 
 
+# Read GloVe word embedding data
+with open(config["dataset"]["glovepath"], "r") as glove_file:
+    glove = json.load(glove_file)
+glovevocabulary = Vocabulary(
+    config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
+)
+KAT = []
+for key in glove.keys():
+    keylist = [key]
+    token = glovevocabulary.to_indices(keylist)
+    key_and_token = keylist + token
+    KAT.append(key_and_token)
+glove_token = {}
+for item in KAT:
+    glove_token[item[1]] = glove[item[0]]
 
-# # Read ELMo word embedding data
+glove_list = []
+for i in range(len(glovevocabulary)):
+    if i in glove_token.keys():
+        glove_list.append(glove_token[i])
+    else:
+        randArray = random.random(size=(1, 300)).tolist()
+        glove_list.append(randArray[0])
+glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+
+
+
+# Read ELMo word embedding data
 # with open(config["dataset"]["elmopath"], "r") as elmo_file:
 #     elmo = json.load(elmo_file)
 # KAT = []
