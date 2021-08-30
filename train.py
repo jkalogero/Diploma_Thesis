@@ -11,7 +11,7 @@ import yaml
 from bisect import bisect
 
 from numpy import random
-
+import numpy as np
 from visdialch.data.dataset import VisDialDataset
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
@@ -108,6 +108,11 @@ for arg in vars(args):
 #   SETUP DATASET, DATALOADER, MODEL, CRITERION, OPTIMIZER, SCHEDULER
 # ================================================================================================
 
+# ================================================================================================
+import nltk
+nltk.download('punkt')
+# ================================================================================================
+
 train_dataset = VisDialDataset(
     config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
 )
@@ -125,8 +130,13 @@ val_dataloader = DataLoader(
 
 
 # Read GloVe word embedding data
+glove = {}
 with open(config["dataset"]["glovepath"], "r") as glove_file:
-    glove = json.load(glove_file)
+    for line in glove_file:
+        values = line.split()
+        word = values[0]
+        vector = np.asarray(values[1:], "float32")
+        glove[word] = vector
 glovevocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
