@@ -49,7 +49,7 @@ class VisDialDataset(Dataset):
         if overfit:
             self.image_ids = self.image_ids[:5]
 
-        self.captions_reader = CaptionReader(caption_jsonpath)
+        # self.captions_reader = CaptionReader(caption_jsonpath)
 
     @property
     def split(self):
@@ -107,14 +107,14 @@ class VisDialDataset(Dataset):
             answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
         
 
-        captions_dic = self.captions_reader[image_id]
-        captions_mul = captions_dic["captions"]
-        captions_new = [] 
-        for i in range(len(captions_mul)):
-            captions_each = self.vocabulary.to_indices(captions_mul[i])
-            captions_new.append(captions_each)
+        # captions_dic = self.captions_reader[image_id]
+        # captions_mul = captions_dic["captions"]
+        # captions_new = [] 
+        # for i in range(len(captions_mul)):
+        #     captions_each = self.vocabulary.to_indices(captions_mul[i])
+        #     captions_new.append(captions_each)
 
-        captions_new ,captions_len = self._pad_captions(captions_new)
+        # captions_new ,captions_len = self._pad_captions(captions_new)
 
 
 
@@ -142,8 +142,8 @@ class VisDialDataset(Dataset):
 
 
         #关于caption的相关参数
-        item["captions_len"] = torch.tensor(captions_len).long()
-        item["captions"] = captions_new.long()
+        # item["captions_len"] = torch.tensor(captions_len).long()
+        # item["captions"] = captions_new.long()
 
 
         return item
