@@ -13,6 +13,8 @@ Each reader must atleast implement three methods:
 import copy
 import json
 from typing import Dict, List, Union
+import torch
+import numpy as np
 
 import h5py
 # A bit slow, and just splits sentences to list of words, can be doable in `DialogsReader`.
@@ -197,17 +199,17 @@ class ImageFeaturesHdfReader(object):
             # Read chunk from file everytime if not loaded in memory.
             with h5py.File(self.features_hdfpath, "r") as features_hdf:
                 image_id_features = features_hdf["features"][index]
-                image_id_relation = features_hdf["relations"][index]
+#                 image_id_relation = features_hdf["relations"][index]
 
-        return image_id_features,image_id_relation
+        return image_id_features
 
     def keys(self) -> List[int]:
         return self.image_id_list
     
     def get_node_features(self):
         with h5py.File(self.features_hdfpath, "r") as features_hdf:
-            features = torch.tensor(np.array(f['features']))
-            ids = torch.tensor(np.array(f['image_id']))
+            features = torch.tensor(np.array(features_hdf['features']))
+            ids = torch.tensor(np.array(features_hdf['image_id']))
         return ids, features
 
     @property

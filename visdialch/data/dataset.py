@@ -1,11 +1,11 @@
 import torch
 import torch_geometric
-from torch_geometric import Dataset, Data
+from torch_geometric.data import InMemoryDataset, Dataset, Data
 import numpy as np
 import os
 from typing import Any, Dict, List, Optional, Union
 from tqdm import tqdm
-from readers import ImageFeaturesHdfReader
+from visdialch.data.readers import ImageFeaturesHdfReader
 
 class VisDialDataset(Dataset):
     def __init__(self,
@@ -20,7 +20,6 @@ class VisDialDataset(Dataset):
         self.filename = filename
 
         # Initialize image features reader according to split.
-        image_features_hdfpath = config["image_features_train_h5"]
         if "val" in self.dialogs_reader.split:
             image_features_hdfpath = config["image_features_val_h5"]
         elif "test" in self.dialogs_reader.split:
@@ -36,30 +35,40 @@ class VisDialDataset(Dataset):
     
     @property
     def processed_file_names(self):
+        self.image_ids, self.features = self.hdf_reader.get_node_features()
         if self.test:
-            return [f'data_test_{i}.pt' for i in list(self.data.index)]
+            return [f'data_test_{torch.IntTensor.item(i)}.pt' for i in list(self.image_ids)]
         else:
-            return [f'data_{i}.pt' for i in list(self.data.index)]
+            return [f'data_{torch.IntTensor.item(i)}.pt' for i in list(self.image_ids)]
     
     def download(self):
         pass
 
     def process(self):
-        image_ids, features = ImageFeaturesHdfReader.get_node_features()
-        for id, graph in tqdm(enumerate(features)):
+        self.image_ids, self.features = self.hdf_reader.get_node_features()
+        for index, graph in tqdm(enumerate(self.features)):
             # construct graph
             # Get node features
-            node_features = features[graph]
+            node_features = graph
             # Get edge features
-            edge_features = self._get_edge_features(features.shape[0])
+            edge_features = self._get_edge_features(self.features.shape[1])
             # Get adjacency info
-            edge_index = self._get_adjacency_info(features.shape[0])
+            edge_index = self._get_adjacency_info(self.features.shape[1])
 
             # Create data object
             data = Data(x=node_features,
                         edge_index=edge_index,
                         edge_attr=edge_features,
-                        graph_id = image_ids[id])
+                        graph_id = self.image_ids[index])
+            if self.test:
+                torch.save(data, 
+                    os.path.join(self.processed_dir, 
+                                 f'data_test_{index}.pt'))
+            else:
+                torch.save(data, 
+                    os.path.join(self.processed_dir, 
+                                 f'data_{index}.pt'))
+
 
     def _get_node_features(self, image_ids, features):
         pass
@@ -94,3 +103,16 @@ class VisDialDataset(Dataset):
         E[1, :] = torch.Tensor([item for sublist in neighbors for item in sublist])
 
         return E
+    
+    
+    def len(self):
+        return self.features.shape[1]
+    
+    def get(self, idx):
+        if self.test:
+            data = torch.load(os.path.join(self.processed_dir, 
+                                 f'data_test_{idx}.pt'))
+        else:
+            data = torch.load(os.path.join(self.processed_dir, 
+                                 f'data_{idx}.pt'))        
+        return data
