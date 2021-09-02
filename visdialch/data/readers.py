@@ -203,6 +203,12 @@ class ImageFeaturesHdfReader(object):
 
     def keys(self) -> List[int]:
         return self.image_id_list
+    
+    def get_node_features(self):
+        with h5py.File(self.features_hdfpath, "r") as features_hdf:
+            features = torch.tensor(np.array(f['features']))
+            ids = torch.tensor(np.array(f['image_id']))
+        return ids, features
 
     @property
     def split(self):
