@@ -5,7 +5,6 @@ from tensorboardX import SummaryWriter
 import torch
 from torch import nn, optim
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 import yaml
 from bisect import bisect
@@ -13,6 +12,7 @@ from bisect import bisect
 from numpy import random
 import numpy as np
 from visdialch.data.dataset import VisDialDataset
+from torch_geometric.data import DataLoader
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
 from visdialch.metrics import SparseGTMetrics, NDCG, scores_to_ranks
@@ -113,51 +113,72 @@ import nltk
 nltk.download('punkt')
 # ================================================================================================
 
-train_dataset = VisDialDataset(
-    config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
-)
-train_dataloader = DataLoader(
-    train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
-)
+# train_dataset = VisDialDataset(
+#     config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
+# )
+# train_dataloader = DataLoader(
+#     train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
+# )
 
-val_dataset = VisDialDataset(
-    config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
-    in_memory=args.in_memory
-)
-val_dataloader = DataLoader(
-    val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
-)
+# val_dataset = VisDialDataset(
+#     config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
+#     in_memory=args.in_memory
+# )
+# val_dataloader = DataLoader(
+#     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
+# )
+
+sub_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5')
+sub_loader = DataLoader(sub_dataset, batch_size=5, shuffle=True)     
+
+for batch in sub_loader:
+    print("NEW BATCH")
+    print(batch)
+    for i in range(5):
+        print('graph ', i, ': ',batch[i])
+        print('\t num_nodes = ', batch[i].num_nodes)
+        print('\t num_edges = ', batch[i].num_edges)
+        break
+    break
+
+
+# print(len(val_dataloader))
+# for i, batch in enumerate(val_dataloader):
+#     for key in batch:
+#         print(key, "\t", batch[key].size())
+#     break
+
 
 
 # Read GloVe word embedding data
-glove = {}
-with open(config["dataset"]["glovepath"], "r") as glove_file:
-    for line in glove_file:
-        values = line.split()
-        word = values[0]
-        vector = np.asarray(values[1:], "float32")
-        glove[word] = vector
-glovevocabulary = Vocabulary(
-    config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
-)
-KAT = []
-for key in glove.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-glove_token = {}
-for item in KAT:
-    glove_token[item[1]] = glove[item[0]]
+# glove = {}
+# with open(config["dataset"]["glovepath"], "r") as glove_file:
+#     for line in glove_file:
+#         values = line.split()
+#         word = values[0]
+#         vector = np.asarray(values[1:], "float32")
+#         glove[word] = vector
+# glovevocabulary = Vocabulary(
+#     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
+# )
+# KAT = []
+# for key in glove.keys():
+#     keylist = [key]
+#     token = glovevocabulary.to_indices(keylist)
+#     key_and_token = keylist + token
+#     KAT.append(key_and_token)
+# glove_token = {}
+# for item in KAT:
+#     glove_token[item[1]] = glove[item[0]]
 
-glove_list = []
-for i in range(len(glovevocabulary)):
-    if i in glove_token.keys():
-        glove_list.append(glove_token[i])
-    else:
-        randArray = random.random(size=(1, 300)).tolist()
-        glove_list.append(randArray[0])
-glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+# glove_list = []
+# for i in range(len(glovevocabulary)):
+#     if i in glove_token.keys():
+#         glove_list.append(glove_token[i])
+#     else:
+#         randArray = random.random(size=(1, 300)).tolist()
+#         glove_list.append(randArray[0])
+# glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
 

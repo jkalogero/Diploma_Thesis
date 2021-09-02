@@ -5,11 +5,12 @@ import numpy as np
 import os
 from typing import Any, Dict, List, Optional, Union
 from tqdm import tqdm
-from visdialch.data.readers import ImageFeaturesHdfReader
+from visdialch.data.readers import ImageFeaturesHdfReader, DialogsReader
 
 class VisDialDataset(Dataset):
     def __init__(self,
                  config: Dict[str, Any],
+                 dialogs_jsonpath: str,
                  root,
                  filename,
                  test=False,
@@ -18,8 +19,12 @@ class VisDialDataset(Dataset):
                  in_memory: bool = False):
         self.test = test
         self.filename = filename
+        self.config = config
+        self.dialogs_reader = DialogsReader(dialogs_jsonpath)
 
         # Initialize image features reader according to split.
+#         image_features_hdfpath = config["image_features_train_h5"]
+        image_features_hdfpath = '/home/jkalogero/KBGN-Implementation/data/mySubmat.h5'
         if "val" in self.dialogs_reader.split:
             image_features_hdfpath = config["image_features_val_h5"]
         elif "test" in self.dialogs_reader.split:
