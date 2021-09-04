@@ -6,6 +6,7 @@ import os
 from typing import Any, Dict, List, Optional, Union
 from tqdm import tqdm
 from visdialch.data.readers import ImageFeaturesHdfReader, DialogsReader
+from visdialch.data.vocabulary import Vocabulary
 
 class VisDialDataset(Dataset):
     def __init__(self,
@@ -21,6 +22,10 @@ class VisDialDataset(Dataset):
         self.filename = filename
         self.config = config
         self.dialogs_reader = DialogsReader(dialogs_jsonpath)
+
+        self.vocabulary = Vocabulary(
+            config["word_counts_json"], min_count=config["vocab_min_count"]
+        )
 
         # Initialize image features reader according to split.
 #         image_features_hdfpath = config["image_features_train_h5"]

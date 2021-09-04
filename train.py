@@ -142,6 +142,7 @@ for batch in sub_loader:
     break
 
 
+# prints for old dataloader
 # print(len(val_dataloader))
 # for i, batch in enumerate(val_dataloader):
 #     for key in batch:
@@ -151,34 +152,34 @@ for batch in sub_loader:
 
 
 # Read GloVe word embedding data
-# glove = {}
-# with open(config["dataset"]["glovepath"], "r") as glove_file:
-#     for line in glove_file:
-#         values = line.split()
-#         word = values[0]
-#         vector = np.asarray(values[1:], "float32")
-#         glove[word] = vector
-# glovevocabulary = Vocabulary(
-#     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
-# )
-# KAT = []
-# for key in glove.keys():
-#     keylist = [key]
-#     token = glovevocabulary.to_indices(keylist)
-#     key_and_token = keylist + token
-#     KAT.append(key_and_token)
-# glove_token = {}
-# for item in KAT:
-#     glove_token[item[1]] = glove[item[0]]
+glove = {}
+with open(config["dataset"]["glovepath"], "r") as glove_file:
+    for line in glove_file:
+        values = line.split()
+        word = values[0]
+        vector = np.asarray(values[1:], "float32")
+        glove[word] = vector
+glovevocabulary = Vocabulary(
+    config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
+)
+KAT = []
+for key in glove.keys():
+    keylist = [key]
+    token = glovevocabulary.to_indices(keylist)
+    key_and_token = keylist + token
+    KAT.append(key_and_token)
+glove_token = {}
+for item in KAT:
+    glove_token[item[1]] = glove[item[0]]
 
-# glove_list = []
-# for i in range(len(glovevocabulary)):
-#     if i in glove_token.keys():
-#         glove_list.append(glove_token[i])
-#     else:
-#         randArray = random.random(size=(1, 300)).tolist()
-#         glove_list.append(randArray[0])
-# glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+glove_list = []
+for i in range(len(glovevocabulary)):
+    if i in glove_token.keys():
+        glove_list.append(glove_token[i])
+    else:
+        randArray = random.random(size=(1, 300)).tolist()
+        glove_list.append(randArray[0])
+glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
 
@@ -205,10 +206,11 @@ for batch in sub_loader:
 # elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
 
 
-# # Pass vocabulary to construct Embedding layer.
-# encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+# Pass vocabulary to construct Embedding layer.
+encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token)
+# encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token, elmo_token)
 # decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
-# print("Encoder: {}".format(config["model"]["encoder"]))
+print("Encoder: {}".format(config["model"]["encoder"]))
 # print("Decoder: {}".format(config["model"]["decoder"]))
 
 # # Share word embedding between encoder and decoder.
