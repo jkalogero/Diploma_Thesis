@@ -45,7 +45,7 @@ model:
 
 # Optimization related arguments
 solver:
-  batch_size: 50
+  batch_size: 10
   num_epochs: 16
   initial_lr: 1e-3
   training_splits: "train"  # "trainval"

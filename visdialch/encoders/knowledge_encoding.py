@@ -3,7 +3,7 @@ from torch import nn
 
 class KnowledgeEncoding(nn.Module):
     def __init__(self, config):
-        super(KnowledgeEncoding).__init__()
+        super(KnowledgeEncoding, self).__init__()
 
         # weights for Query-Guided Relation Selection
         self.w1 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
@@ -15,6 +15,7 @@ class KnowledgeEncoding(nn.Module):
 
     
     def forward(self, batch):
+        print("inside Knowledge Enc forward")
         for i in range(len(batch)):
             print('graph ', i, ': ',batch[i])
             print('\t num_nodes = ', batch[i].num_nodes)
