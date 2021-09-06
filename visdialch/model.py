@@ -10,12 +10,12 @@ class EncoderDecoderModel(nn.Module):
     decoder: nn.Module
     """
 
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder):
         super().__init__()
         self.encoder = encoder
-        self.decoder = decoder
+#         self.decoder = decoder
 
     def forward(self, batch):
         encoder_output = self.encoder(batch)
-        decoder_output = self.decoder(encoder_output, batch)
-        return decoder_output
+#         decoder_output = self.decoder(encoder_output, batch)
+        return encoder_output

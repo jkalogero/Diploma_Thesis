@@ -21,6 +21,6 @@ class KnowledgeEncoding(nn.Module):
             print('\t num_nodes = ', batch[i].num_nodes)
             print('\t num_edges = ', batch[i].num_edges)
             break
-        res: any
+        res = "1"
         return res
     

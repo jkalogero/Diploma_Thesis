@@ -128,10 +128,10 @@ nltk.download('punkt')
 #     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
 # )
 
-sub_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5')
-sub_loader = DataLoader(sub_dataset, batch_size=5, shuffle=True)     
+train_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5')
+train_dataloader = DataLoader(train_dataset, batch_size=5, shuffle=True)     
 
-for batch in sub_loader:
+for batch in train_dataloader:
     print("NEW BATCH")
     print(batch)
     for i in range(5):
@@ -207,7 +207,7 @@ glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token)
+encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token)
 # encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token, elmo_token)
 # decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
 print("Encoder: {}".format(config["model"]["encoder"]))
@@ -219,61 +219,61 @@ print("Encoder: {}".format(config["model"]["encoder"]))
 # decoder.elmo_embed = encoder.elmo_embed
 # decoder.embed_change = encoder.embed_change
 
-# # Wrap encoder and decoder in a model.
-# model = EncoderDecoderModel(encoder, decoder).to(device)
+# # Wrap encoder and decoder in a model. DON'T FORGET TO DEVICE
+model = EncoderDecoderModel(encoder)
 # if -1 not in args.gpu_ids:
 #     model = nn.DataParallel(model, args.gpu_ids)
 
-# # Loss function.
-# criterion = nn.CrossEntropyLoss()
+# Loss function.
+criterion = nn.CrossEntropyLoss()
 
-# if config["solver"]["training_splits"] == "trainval":
-#     iterations = (len(train_dataset) + len(val_dataset)) // config["solver"]["batch_size"] + 1
-# else:
-#     iterations = len(train_dataset) // config["solver"]["batch_size"] + 1
-
-
-# # lr_scheduler 1
-# def lr_lambda_fun(current_iteration: int) -> float:
-
-#     current_epoch = float(current_iteration) / iterations
-#     if current_epoch <= config["solver"]["warmup_epochs"]:
-#         alpha = current_epoch / float(config["solver"]["warmup_epochs"])
-#         return config["solver"]["warmup_factor"] * (1. - alpha) + alpha
-#     else:
-#         idx = bisect(config["solver"]["lr_milestones"], current_epoch)
-#         return pow(config["solver"]["lr_gamma"], idx)
+if config["solver"]["training_splits"] == "trainval":
+    iterations = (len(train_dataset) + len(val_dataset)) // config["solver"]["batch_size"] + 1
+else:
+    iterations = len(train_dataset) // config["solver"]["batch_size"] + 1
 
 
-# optimizer = optim.Adamax(model.parameters(), lr=config["solver"]["initial_lr"])
-# scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda_fun)
-# T = iterations * (config["solver"]["num_epochs"] - config["solver"]["warmup_epochs"] + 1)
-# # lr_scheduler 2
-# scheduler2 = lr_scheduler.CosineAnnealingLR(optimizer, int(T), eta_min=config["solver"]["eta_min"], last_epoch=-1)
+# lr_scheduler 1
+def lr_lambda_fun(current_iteration: int) -> float:
 
-# # ================================================================================================
-# #   SETUP BEFORE TRAINING LOOP
-# # ================================================================================================
+    current_epoch = float(current_iteration) / iterations
+    if current_epoch <= config["solver"]["warmup_epochs"]:
+        alpha = current_epoch / float(config["solver"]["warmup_epochs"])
+        return config["solver"]["warmup_factor"] * (1. - alpha) + alpha
+    else:
+        idx = bisect(config["solver"]["lr_milestones"], current_epoch)
+        return pow(config["solver"]["lr_gamma"], idx)
 
-# summary_writer = SummaryWriter(log_dir=args.save_dirpath)
-# checkpoint_manager = CheckpointManager(model, optimizer, args.save_dirpath, config=config)
-# sparse_metrics = SparseGTMetrics()
-# ndcg = NDCG()
 
-# # If loading from checkpoint, adjust start epoch and load parameters.
-# if args.load_pthpath == "":
-#     start_epoch = 0
-# else:
-#     # "path/to/checkpoint_xx.pth" -> xx
-#     start_epoch = int(args.load_pthpath.split("_")[-1][:-4])
+optimizer = optim.Adamax(model.parameters(), lr=float(config["solver"]["initial_lr"]))
+scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda_fun)
+T = iterations * (config["solver"]["num_epochs"] - config["solver"]["warmup_epochs"] + 1)
+# lr_scheduler 2
+scheduler2 = lr_scheduler.CosineAnnealingLR(optimizer, int(T), eta_min=config["solver"]["eta_min"], last_epoch=-1)
 
-#     model_state_dict, optimizer_state_dict = load_checkpoint(args.load_pthpath)
-#     if isinstance(model, nn.DataParallel):
-#         model.module.load_state_dict(model_state_dict)
-#     else:
-#         model.load_state_dict(model_state_dict)
-#     optimizer.load_state_dict(optimizer_state_dict)
-#     print("Loaded model from {}".format(args.load_pthpath))
+# ================================================================================================
+#   SETUP BEFORE TRAINING LOOP
+# ================================================================================================
+
+summary_writer = SummaryWriter(log_dir=args.save_dirpath)
+checkpoint_manager = CheckpointManager(model, optimizer, args.save_dirpath, config=config)
+sparse_metrics = SparseGTMetrics()
+ndcg = NDCG()
+
+# If loading from checkpoint, adjust start epoch and load parameters.
+if args.load_pthpath == "":
+    start_epoch = 0
+else:
+    # "path/to/checkpoint_xx.pth" -> xx
+    start_epoch = int(args.load_pthpath.split("_")[-1][:-4])
+
+    model_state_dict, optimizer_state_dict = load_checkpoint(args.load_pthpath)
+    if isinstance(model, nn.DataParallel):
+        model.module.load_state_dict(model_state_dict)
+    else:
+        model.load_state_dict(model_state_dict)
+    optimizer.load_state_dict(optimizer_state_dict)
+    print("Loaded model from {}".format(args.load_pthpath))
 
 # # ================================================================================================
 # #   TRAINING LOOP
@@ -282,26 +282,28 @@ print("Encoder: {}".format(config["model"]["encoder"]))
 # # Forever increasing counter keeping track of iterations completed (for tensorboard logging).
 # global_iteration_step = start_epoch * iterations
 
-# for epoch in range(start_epoch, config["solver"]["num_epochs"]):
+for epoch in range(start_epoch, config["solver"]["num_epochs"]):
 
-#     # --------------------------------------------------------------------------------------------
-#     #   ON EPOCH START  (combine dataloaders if training on train + val)
-#     # --------------------------------------------------------------------------------------------
-#     if config["solver"]["training_splits"] == "trainval":
-#         combined_dataloader = itertools.chain(train_dataloader, val_dataloader)
-#     else:
-#         combined_dataloader = itertools.chain(train_dataloader)
+    # --------------------------------------------------------------------------------------------
+    #   ON EPOCH START  (combine dataloaders if training on train + val)
+    # --------------------------------------------------------------------------------------------
+    if config["solver"]["training_splits"] == "trainval":
+        combined_dataloader = itertools.chain(train_dataloader, val_dataloader)
+    else:
+        combined_dataloader = itertools.chain(train_dataloader)
 
-#     print(f"\nTraining for epoch {epoch}:")
-#     for i, batch in enumerate(tqdm(combined_dataloader)):
+    print(f"\nTraining for epoch {epoch}:")
+    for i, batch in enumerate(tqdm(combined_dataloader)):
 #         for key in batch:
+#             print(key)
+#             MAY HAVE ERROR HERE WITH CUDA
 #             batch[key] = batch[key].to(device)
 
-#         optimizer.zero_grad()
-#         output = model(batch)
-#         batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
-#         batch_loss.backward()
-#         optimizer.step()
+        optimizer.zero_grad()
+        output = model(batch)
+        batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
+        batch_loss.backward()
+        optimizer.step()
 
 #         summary_writer.add_scalar("train/loss", batch_loss, global_iteration_step)
 #         summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step)
