@@ -208,8 +208,8 @@ class ImageFeaturesHdfReader(object):
     
     def get_node_features(self):
         with h5py.File(self.features_hdfpath, "r") as features_hdf:
-            features = torch.tensor(np.array(features_hdf['features']))
-            ids = torch.tensor(np.array(features_hdf['image_id']))
+            features = torch.tensor(np.array(features_hdf['features']), dtype=torch.float)
+            ids = torch.tensor(np.array(features_hdf['image_id']), dtype=torch.float)
         return ids, features
 
     @property

@@ -116,7 +116,7 @@ class VisDialDataset(Dataset):
     
     
     def len(self):
-        return self.features.shape[1]
+        return self.features.shape[0]
     
     def get(self, idx):
         if self.test:
