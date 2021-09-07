@@ -1,6 +1,6 @@
 import torch
 import torch_geometric
-from torch_geometric.data import InMemoryDataset, Dataset, Data
+from torch_geometric.data import InMemoryDataset, Dataset, HeteroData
 import numpy as np
 import os
 from typing import Any, Dict, List, Optional, Union
@@ -66,10 +66,25 @@ class VisDialDataset(Dataset):
             edge_index = self._get_adjacency_info(self.features.shape[1])
 
             # Create data object
-            data = Data(x=node_features,
-                        edge_index=edge_index,
-                        edge_attr=edge_features,
-                        graph_id = self.image_ids[index])
+            # data = Data(x=node_features,
+            #             edge_index=edge_index,
+            #             edge_attr=edge_features,
+            #             graph_id = self.image_ids[index])
+
+            data = HeteroData()
+
+            # visual
+            data['v_object'].x = node_features
+            data['v_object', 'relates', 'v_object'].edge_index = edge_index
+            data['v_object', 'relates', 'v_object'].edge_attr = edge_attributes
+
+            # semantic
+            s_nodes = torch.rand([10,512])
+            data['dialogue_entity'].x = s_nodes
+            data['dialogue_entity', 'relates', 'dialogue_entity'].edge_index = self._get_adjacency_info(self, num_of_nodes=10)
+            data['dialogue_entity', 'relates', 'dialogue_entity'].edge_attr = self._get_edge_features(num_of_nodes=10)
+
+            
             if self.test:
                 torch.save(data, 
                     os.path.join(self.processed_dir, 
