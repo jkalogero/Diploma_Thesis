@@ -15,11 +15,13 @@ class KnowledgeEncoding(nn.Module):
 
     
     def forward(self, batch):
-        print("inside Knowledge Enc forward")
+        
         for i in range(len(batch)):
             print('graph ', i, ': ',batch[i])
             print('\t num_nodes = ', batch[i].num_nodes)
             print('\t num_edges = ', batch[i].num_edges)
+            question = batch[i]['questions']
+            print("question = ", question)
             break
         res = "1"
         return res

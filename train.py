@@ -12,7 +12,7 @@ from bisect import bisect
 from numpy import random
 import numpy as np
 from visdialch.data.dataset import VisDialDataset
-from torch_geometric.data import DataLoader
+from torch_geometric.loader import DataLoader
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
 from visdialch.metrics import SparseGTMetrics, NDCG, scores_to_ranks
@@ -109,8 +109,8 @@ for arg in vars(args):
 # ================================================================================================
 
 # ================================================================================================
-import nltk
-nltk.download('punkt')
+# import nltk
+# nltk.download('punkt')
 # ================================================================================================
 
 # train_dataset = VisDialDataset(
@@ -128,27 +128,8 @@ nltk.download('punkt')
 #     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
 # )
 
-train_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5')
-train_dataloader = DataLoader(train_dataset, batch_size=5, shuffle=True)     
-
-for batch in train_dataloader:
-    print("NEW BATCH")
-    print(batch)
-    for i in range(5):
-        print('graph ', i, ': ',batch[i])
-        print('\t num_nodes = ', batch[i].num_nodes)
-        print('\t num_edges = ', batch[i].num_edges)
-        break
-    break
-
-
-# prints for old dataloader
-# print(len(val_dataloader))
-# for i, batch in enumerate(val_dataloader):
-#     for key in batch:
-#         print(key, "\t", batch[key].size())
-#     break
-
+train_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5', overfit=args.overfit)
+train_dataloader = DataLoader(train_dataset, batch_size=config["solver"]["batch_size"], shuffle=True)     
 
 
 # Read GloVe word embedding data
@@ -219,8 +200,9 @@ print("Encoder: {}".format(config["model"]["encoder"]))
 # decoder.elmo_embed = encoder.elmo_embed
 # decoder.embed_change = encoder.embed_change
 
-# # Wrap encoder and decoder in a model. DON'T FORGET TO DEVICE
-model = EncoderDecoderModel(encoder)
+# # Wrap encoder and decoder in a model
+model = EncoderDecoderModel(encoder).to(device)
+# print(model.device)
 # if -1 not in args.gpu_ids:
 #     model = nn.DataParallel(model, args.gpu_ids)
 
@@ -293,11 +275,10 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
         combined_dataloader = itertools.chain(train_dataloader)
 
     print(f"\nTraining for epoch {epoch}:")
-    for i, batch in enumerate(tqdm(combined_dataloader)):
-#         for key in batch:
-#             print(key)
-#             MAY HAVE ERROR HERE WITH CUDA
-#             batch[key] = batch[key].to(device)
+    for batch in tqdm(combined_dataloader):
+        # add to cuda
+        for el in batch:
+            el = el.to(device)
 
         optimizer.zero_grad()
         output = model(batch)
