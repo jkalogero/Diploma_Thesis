@@ -1,2 +1,6 @@
 data/*
 __pycache__/
+*.ipynb*
+checkpoints
+.vscode
+testing_geometric.py

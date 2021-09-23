@@ -98,7 +98,8 @@ config = yaml.load(open(args.config_yml))
 
 if isinstance(args.gpu_ids, int): args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
-
+# DELETE LATER
+device = torch.device("cpu")
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
 for arg in vars(args):
@@ -276,10 +277,15 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
 
     print(f"\nTraining for epoch {epoch}:")
     for batch in tqdm(combined_dataloader):
+        batch = batch.to(device)
         # add to cuda
         for el in batch:
+            # print(el)
             el = el.to(device)
-
+            # print("el['questions'].device = ", el['questions'].device)
+        #     break
+        # batch = batch.to(device)
+        # print("next(model.parameters()).is_cuda = ", next(model.parameters()).is_cuda)
         optimizer.zero_grad()
         output = model(batch)
         batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))

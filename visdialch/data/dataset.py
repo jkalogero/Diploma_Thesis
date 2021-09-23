@@ -80,7 +80,7 @@ class VisDialDataset(Dataset):
             # Get adjacency info
             v_edge_index = self._get_adjacency_info()
             # Get edge features
-            v_edge_features = self._get_edge_features()
+            v_edge_features = self._get_edge_features(edge_feature_size = 512)
             
             # add visual graph to HeteroData 
             data['v_object'].x = image_features
@@ -147,8 +147,11 @@ class VisDialDataset(Dataset):
             # data['dialogue_entity', 'relates', 'v_object'].edge_index = self._get_adjacency_info(num_of_nodes=10)
             # data['dialogue_entity', 'relates', 'dialogue_entity'].edge_attr = self._get_edge_features(num_of_nodes=10)
 
-            # add current question as global graph attr to HeteroData
+            # add more data as global graph attr to HeteroData
             data.questions = questions
+            data.ques_len = torch.tensor(question_lengths).long()
+            data.num_rounds = torch.tensor(visdial_instance["num_rounds"]).long()
+            data.opt = answer_options.long()
 
             
             if self.test:
@@ -167,9 +170,9 @@ class VisDialDataset(Dataset):
     def _get_edge_features(self, num_of_nodes=36, edge_feature_size = 512):
         """
         For now it generates a random matrix of the shape 
-        [num_of_edges, edge_feature_size = 512]
+        [num_of_edges, edge_feature_size]
         """
-        num_of_edges = num_of_nodes*(num_of_nodes - 1)
+        num_of_edges = num_of_nodes*num_of_nodes
         edge_features = torch.rand([num_of_edges, edge_feature_size])
         
         return edge_features
@@ -180,7 +183,7 @@ class VisDialDataset(Dataset):
         given number of nodes
         """
         # Initialize edge index matrix
-        E = torch.zeros((2, num_of_nodes * (num_of_nodes - 1)), dtype=torch.long)
+        E = torch.zeros((2, num_of_nodes * num_of_nodes), dtype=torch.long)
 
         # Populate 1st row
         for node in range(num_of_nodes):
@@ -190,7 +193,8 @@ class VisDialDataset(Dataset):
         # Populate 2nd row
         neighbors = []
         for node in range(num_of_nodes):
-            neighbors.append(list(np.arange(node)) + list(np.arange(node+1, num_of_nodes)))
+            # neighbors.append(list(np.arange(node)) + list(np.arange(node+1, num_of_nodes)))
+            neighbors.append(list(np.arange(num_of_nodes)))
         E[1, :] = torch.Tensor([item for sublist in neighbors for item in sublist])
 
         return E

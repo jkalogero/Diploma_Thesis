@@ -1,17 +1,10 @@
 name: kbgn
-channels:
-  - pytorch
-  - defaults
 dependencies:
-  - cython=0.29.1
-  - h5py=2.8.0
-  - nltk=3.4
+  - pip:
+    - tensorboardX==1.2
+    - pyyaml>=4.2b1
+    - nltk==3.4
+    - "--editable=git+https://github.com/rusty1s/pytorch_geometric.git#egg=pytorch_geometric-master"
   - numpy=1.15.4
-  - Pillow=5.3.0
-  - pyyaml=4.2b1
-  - six=1.11.0
-  - tensorboardX=1.2
-  - tensorflow=1.12.0
-  - torch=1.0.0
-  - tqdm=4.28.1
-  - pytorch-geometric
+  - pytorch>=1.8.0
+  - h5py==2.8.0
