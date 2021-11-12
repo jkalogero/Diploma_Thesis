@@ -100,6 +100,7 @@ if isinstance(args.gpu_ids, int): args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 # DELETE LATER
 device = torch.device("cpu")
+print("device = ", device)
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
 for arg in vars(args):
@@ -114,23 +115,13 @@ for arg in vars(args):
 # nltk.download('punkt')
 # ================================================================================================
 
-# train_dataset = VisDialDataset(
-#     config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
-# )
-# train_dataloader = DataLoader(
-#     train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
-# )
+train_dataset = VisDialDataset(
+    config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
+)
+train_dataloader = DataLoader(
+    train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
+)
 
-# val_dataset = VisDialDataset(
-#     config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
-#     in_memory=args.in_memory
-# )
-# val_dataloader = DataLoader(
-#     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
-# )
-
-train_dataset = VisDialDataset(config["dataset"], args.train_json, root='data/', filename='mySubmat.h5', overfit=args.overfit)
-train_dataloader = DataLoader(train_dataset, batch_size=config["solver"]["batch_size"], shuffle=True)     
 
 
 # Read GloVe word embedding data
@@ -276,12 +267,10 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
         combined_dataloader = itertools.chain(train_dataloader)
 
     print(f"\nTraining for epoch {epoch}:")
-    for batch in tqdm(combined_dataloader):
-        batch = batch.to(device)
-        # add to cuda
-        for el in batch:
-            # print(el)
-            el = el.to(device)
+    for i, batch in enumerate(tqdm(combined_dataloader)):
+        for key in batch:
+            batch[key] = batch[key].to(device)
+            print(key, " shape: ", batch[key].shape)
             # print("el['questions'].device = ", el['questions'].device)
         #     break
         # batch = batch.to(device)
