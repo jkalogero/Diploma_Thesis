@@ -88,7 +88,6 @@ class KBGN(nn.Module):
             for i in range(len(b)):
                 concatenated_history.append(b[:i+1])
             
-            print([t.size() for t in concatenated_history])
             maxpadded_history = torch.full(
             (len(concatenated_history),len(concatenated_history), 512),
             fill_value=0, #self.vocabulary.PAD_INDEX
@@ -111,9 +110,8 @@ class KBGN(nn.Module):
             # print("\n\nNONZERO: ", torch.nonzero(padded_history))
             # print("\n\nNONZERO: ", torch.nonzero(maxpadded_history))
             maxpadded_history = maxpadded_history.unsqueeze(0)
-            print(maxpadded_history[0][padded_history.size(1)-1])
+            # print(maxpadded_history[0][padded_history.size(1)-1])
             if index == 0 :
-                print("index = 0")
                 f_history = maxpadded_history
             else:
                 f_history = torch.cat((f_history, maxpadded_history), 0)
@@ -141,8 +139,9 @@ class KBGN(nn.Module):
         print("text_rel.shape = ", text_rel.shape)
         print()
 
-        # Visual Knowledge Encoding
-        updated_v_nodes, updated_s_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
+        # Knowledge Encoding
+        updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
+        # final_embedding = final_embedding.view(batch_size, num_rounds, -1)
         final_embedding = 1
         # final_embedding should have shape (batch_size, num_rounds, -1)
         return final_embedding
