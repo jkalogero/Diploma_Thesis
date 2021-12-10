@@ -270,7 +270,7 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
             batch[key] = batch[key].to(device)
-            print(key, " shape: ", batch[key].shape)
+            # print(key, " shape: ", batch[key].shape)
             # print("el['questions'].device = ", el['questions'].device)
         #     break
         # batch = batch.to(device)
