@@ -12,7 +12,7 @@ from bisect import bisect
 from numpy import random
 import numpy as np
 from visdialch.data.dataset import VisDialDataset
-from torch_geometric.loader import DataLoader
+from torch.utils.data import DataLoader
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
 from visdialch.metrics import SparseGTMetrics, NDCG, scores_to_ranks
@@ -181,6 +181,7 @@ glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 # Pass vocabulary to construct Embedding layer.
 encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token)
+decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token)
 # encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token, elmo_token)
 # decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
 print("Encoder: {}".format(config["model"]["encoder"]))
@@ -193,7 +194,7 @@ print("Encoder: {}".format(config["model"]["encoder"]))
 # decoder.embed_change = encoder.embed_change
 
 # # Wrap encoder and decoder in a model
-model = EncoderDecoderModel(encoder).to(device)
+model = EncoderDecoderModel(encoder, decoder).to(device)
 # print(model.device)
 # if -1 not in args.gpu_ids:
 #     model = nn.DataParallel(model, args.gpu_ids)
@@ -253,8 +254,8 @@ else:
 # #   TRAINING LOOP
 # # ================================================================================================
 
-# # Forever increasing counter keeping track of iterations completed (for tensorboard logging).
-# global_iteration_step = start_epoch * iterations
+# Forever increasing counter keeping track of iterations completed (for tensorboard logging).
+global_iteration_step = start_epoch * iterations
 
 for epoch in range(start_epoch, config["solver"]["num_epochs"]):
 
@@ -270,19 +271,14 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
             batch[key] = batch[key].to(device)
-            # print(key, " shape: ", batch[key].shape)
-            # print("el['questions'].device = ", el['questions'].device)
-        #     break
-        # batch = batch.to(device)
-        # print("next(model.parameters()).is_cuda = ", next(model.parameters()).is_cuda)
         optimizer.zero_grad()
         output = model(batch)
         batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
         batch_loss.backward()
         optimizer.step()
 
-#         summary_writer.add_scalar("train/loss", batch_loss, global_iteration_step)
-#         summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step)
+        summary_writer.add_scalar("train/loss", batch_loss, global_iteration_step)
+        summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step)
 
 #         if global_iteration_step <= iterations * config["solver"]["warmup_epochs"]:
 #             scheduler.step(global_iteration_step)

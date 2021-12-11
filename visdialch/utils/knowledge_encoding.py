@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torch.nn.functional import softmax
-from torch_geometric.nn import DenseGCNConv
 
 
 class KnowledgeEncoding(nn.Module):

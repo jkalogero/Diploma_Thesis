@@ -163,6 +163,8 @@ class KBGN(nn.Module):
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         I, H = self.KnowldgeStorage(updated_v_nodes, updated_t_nodes, ques_embed, batch_size, num_rounds)
         # final_embedding = final_embedding.view(batch_size, num_rounds, -1)
-        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed)
+        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed, batch_size, num_rounds)
+        final_embedding = final_embedding.view(batch_size, num_rounds, -1)
+        print("final_embedding.shape = ", final_embedding.shape)
         # final_embedding should have shape (batch_size, num_rounds, -1)
         return final_embedding
