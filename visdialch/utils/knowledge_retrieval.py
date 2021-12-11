@@ -9,6 +9,8 @@ class KnowledgeRetrieval(nn.Module):
         super(KnowledgeRetrieval, self).__init__()
         self.config = config
 
-    def forward(self):
-        # print("\n\n\t\tRETRIEVAL\n\n")
+    def forward(self, I, H, Q):
+        print("I.shape = ", I.shape)
+        print("H.shape = ", H.shape)
+        print("Q.shape = ", Q.shape)
         return 1

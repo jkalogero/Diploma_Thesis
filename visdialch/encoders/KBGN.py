@@ -3,7 +3,9 @@ from torch import nn
 from torch.nn import functional as F
 from visdialch.utils import DynamicRNN
 from torch.nn.utils.rnn import pad_sequence
-from visdialch.encoders.knowledge_encoding import KnowledgeEncoding
+from visdialch.utils.knowledge_encoding import KnowledgeEncoding
+from visdialch.utils.knowledge_storage import KnowledgeStorage
+from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 
 class KBGN(nn.Module):
     def __init__(self, config, vocabulary, glove):
@@ -40,6 +42,8 @@ class KBGN(nn.Module):
         self.dropout = nn.Dropout(p=config["dropout"])
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
+        self.KnowldgeStorage = KnowledgeStorage(config)
+        self.KnowldgeRetrieval = KnowledgeRetrieval(config)
 
 
 
@@ -47,13 +51,11 @@ class KBGN(nn.Module):
         # Get data
 
         img = batch["img_feat"]
-        print("img.device = ", img.device)
         v_relations = batch["relations"]
         ques = batch["ques"]
         hist = batch["hist"]
         batch_size, num_rounds, max_sequence_length = ques.size()
-        print("hist.shape = ", hist.shape)
-        print(hist[0][0])
+        
         # Embed questions
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
         # print("ques.device = ",ques.device)
@@ -80,7 +82,6 @@ class KBGN(nn.Module):
         
         # print("hist_embed.shape = ", hist_embed.shape)
         hist_embed = hist_embed.view(batch_size, num_rounds, -1)
-        print("hist_embed.shape = ", hist_embed.shape)
         
         # construct semantic graph
         for index, b in enumerate(hist_embed):
@@ -117,7 +118,8 @@ class KBGN(nn.Module):
                 f_history = torch.cat((f_history, maxpadded_history), 0)
         
         
-        print("HIST = ", f_history.shape)
+        # print("HIST = ", f_history.shape)   
+        # f_history.shape = (4, 10, 10, 512)
         # print("first round")
         # print(f_history[0][0][0])
         # print(f_history[0][0][1])
@@ -132,16 +134,35 @@ class KBGN(nn.Module):
         # print(f_history[0][2][3])
         # Create semantic relationships
         t_rel = f_history.view(batch_size, num_rounds, num_rounds, 1, self.config["lstm_hidden_size"]).repeat(1,1, 1, num_rounds, 1)
-        print("t_rel.shape = ", t_rel.shape)
+        # print("t_rel.shape = ", t_rel.shape)
+        mask1 = t_rel.abs().sum(dim=-1).bool()
+        # print(mask1.shape)
         tmp = f_history.view(batch_size, num_rounds, 1,  num_rounds, self.config["lstm_hidden_size"]).repeat(1,1, num_rounds, 1, 1)
-        print("tmp.shape = ", tmp.shape)
+        # print("tmp.shape = ", tmp.shape)
+        mask2 = tmp.abs().sum(dim=-1).bool()
+        # print(mask2.shape)
+
+        # 
+        t_rel[~mask2] = torch.zeros((self.config["lstm_hidden_size"]))
+        tmp[~mask1] = torch.zeros((self.config["lstm_hidden_size"]))
         text_rel = torch.cat((t_rel, tmp), -1)
-        print("text_rel.shape = ", text_rel.shape)
-        print()
+        # text_rel.shape = (4, 10, 10, 10, 1024)
+        # torch.set_printoptions(threshold=10_000)
+        # torch.set_printoptions(linewidth=200)
+        # print("text_rel.shape = ", text_rel.shape)
+        # print("first round")
+        # print(text_rel[0][0])
+        # print("second round")
+        # print(text_rel[0][1])
+        # print("third round")
+        # print(text_rel[0][2])
+        
+        # print()
 
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
+        I, H = self.KnowldgeStorage(updated_v_nodes, updated_t_nodes, ques_embed, batch_size, num_rounds)
         # final_embedding = final_embedding.view(batch_size, num_rounds, -1)
-        final_embedding = 1
+        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed)
         # final_embedding should have shape (batch_size, num_rounds, -1)
         return final_embedding

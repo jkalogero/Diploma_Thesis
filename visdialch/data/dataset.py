@@ -141,7 +141,7 @@ class VisDialDataset(Dataset):
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
         item["alt_hist"] = alt_history.long()
         item["alt_hist_len"] = torch.tensor(alt_history_lengths).long()
-        print('item["hist"] = ', item["hist"].shape)
+        # print('item["hist"] = ', item["hist"].shape)
         if "test" not in self.split:
             item["ans_ind"] = torch.tensor(answer_indices).long()
 
@@ -239,8 +239,8 @@ class VisDialDataset(Dataset):
             [torch.tensor(round_history) for round_history in history],
             batch_first=True, padding_value=self.vocabulary.PAD_INDEX
         )
-        print("DATASET: padded_history.shape = ", padded_history.shape)
-        print("DATASET: maxpadded_history.shape = ", maxpadded_history.shape)
+        # print("DATASET: padded_history.shape = ", padded_history.shape)
+        # print("DATASET: maxpadded_history.shape = ", maxpadded_history.shape)
         maxpadded_history[:, :padded_history.size(1)] = padded_history
         return maxpadded_history, history_lengths
 
@@ -278,7 +278,7 @@ class VisDialDataset(Dataset):
             
             history_lengths = [len(round_history[-1]) for round_history in history]
 
-        print("alt history: history.shape = ", [len(el) for el in history])
+        # print("alt history: history.shape = ", [len(el) for el in history])
         # padd rounds to max_sequence_length
         for el in history:
             el += [0]*(max_history_length-len(el))
@@ -290,8 +290,8 @@ class VisDialDataset(Dataset):
             [torch.tensor(round_history) for round_history in history],
             batch_first=True, padding_value=self.vocabulary.PAD_INDEX
         )
-        print("ALT DATASET: padded_history.shape = ", padded_history.shape)
-        print("ALT DATASET: maxpadded_history.shape = ", maxpadded_history.shape)
+        # print("ALT DATASET: padded_history.shape = ", padded_history.shape)
+        # print("ALT DATASET: maxpadded_history.shape = ", maxpadded_history.shape)
         maxpadded_history[:, :padded_history.size(1)] = padded_history
         return maxpadded_history, history_lengths
 

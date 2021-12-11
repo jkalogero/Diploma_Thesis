@@ -45,7 +45,7 @@ class KnowledgeStorage(nn.Module):
         self.w_v2t_e = nn.Linear(config["lstm_hidden_size"], 1)
         self.w_v2t_8 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
         self.w_v2t_a = nn.Linear(config["lstm_hidden_size"], 1)
-        self.w_v2t_9 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
+        self.w_v2t_9 = nn.Linear(config["img_feature_size"], config["lstm_hidden_size"])
         self.w_v2t_lg = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"])
         self.w_v2t_10 = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
 
@@ -107,6 +107,17 @@ class KnowledgeStorage(nn.Module):
         local_v = self.w_t2v_7(gate_t2v * concated_v) # shape: (40, 36, 512)
 
         # Global Knowledge Storage
+        q_t2v = ques_embed.unsqueeze(1).repeat(1, n_objects, 1) # shape: (40, 36, 512)
+        v_8 = self.w_t2v_8(v_nodes) # shape: (40, 36, 512)
+        h_v = torch.softmax(self.w_t2v_e(q_t2v * v_8),-2)
+        I_o = torch.sum(h_v * v_nodes, -2) # shape: (40, 2048)
+
+        v_9 = self.w_t2v_9(updated_v_nodes) # shape: (40, 36, 512)
+        m_v = torch.softmax(self.w_t2v_a(q_t2v * v_9),-2)
+        I_c = torch.sum(m_v * updated_v_nodes, -2) # shape: (40, 512)
+
+        gate_v_g = torch.sigmoid(self.w_t2v_l(torch.cat((I_o, I_c), -1)))
+        I = self.w_t2v_10(gate_v_g * torch.cat((I_o, I_c), -1)) # shape: (40, 512)
         
 
         # Text Knowledge Storage - Storage
@@ -115,7 +126,20 @@ class KnowledgeStorage(nn.Module):
         gate_v2t = torch.sigmoid(self.w_v2t_l(concated_t))
         local_t = self.w_v2t_7(gate_v2t * concated_t) # shape: (40, 10, 512)
 
-        res = (1, 1)
+        # Global Knowledge Storage
+        q_v2t = ques_embed.unsqueeze(1).repeat(1, num_rounds, 1)# shape: (40, 10, 512)
+        t_8 = self.w_v2t_8(t_nodes)
+        h_t = torch.softmax(self.w_v2t_e(q_v2t * t_8),-2)
+        H_o = torch.sum(h_t * t_nodes, -2) # shape: (40, 512)
+
+        t_9 = self.w_v2t_9(updated_t_nodes) # shape: (40, 10, 512)
+        m_t = torch.softmax(self.w_v2t_a(q_v2t * t_9),-2)
+        H_c = torch.sum(m_t * updated_t_nodes, -2) # shape: (40, 2048)
+
+        gate_t_g = torch.sigmoid(self.w_v2t_l(torch.cat((H_o, H_c), -1)))
+        H = self.w_v2t_10(gate_t_g * torch.cat((H_o, H_c), -1)) # shape: (40, 512)
+
+        res = (I, H)
         return res
 
         
