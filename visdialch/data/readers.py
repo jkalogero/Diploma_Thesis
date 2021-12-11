@@ -20,6 +20,8 @@ import h5py
 # A bit slow, and just splits sentences to list of words, can be doable in `DialogsReader`.
 from nltk.tokenize import word_tokenize
 from tqdm import tqdm
+import pickle
+from pathlib import Path
 
 
 class DialogsReader(object):
@@ -70,17 +72,40 @@ class DialogsReader(object):
 
                 self.dialogs[dialog_for_image["image_id"]] = dialog_for_image["dialog"]
 
-            print(f"[{self._split}] Tokenizing questions...")
-            for i in tqdm(range(len(self.questions))):
-                self.questions[i] = word_tokenize(self.questions[i] + "?")
+            questions_file = Path("/home/jkalogero/KBGN-Implementation/visdialch/data/questions_file")
+            if questions_file.is_file():
 
-            print(f"[{self._split}] Tokenizing answers...")
-            for i in tqdm(range(len(self.answers))):
-                self.answers[i] = word_tokenize(self.answers[i])
+                with open('/home/jkalogero/KBGN-Implementation/visdialch/data/questions_file', 'rb') as q_f:
+                    self.questions = pickle.load(q_f)
+                print("WORKS")
+            else:
+                print(f"[{self._split}] Tokenizing questions...")
+                for i in tqdm(range(len(self.questions))):
+                    self.questions[i] = word_tokenize(self.questions[i] + "?")
+                # with open('/home/jkalogero/KBGN-Implementation/visdialch/data/questions_file', 'wb+') as q_f:
+                #     pickle.dump(self.questions, q_f)
+            
+            answers_file = Path("/home/jkalogero/KBGN-Implementation/visdialch/data/answers_file")
+            if answers_file.is_file():
+                with open('/home/jkalogero/KBGN-Implementation/visdialch/data/answers_file', 'rb') as q_f:
+                    self.answers = pickle.load(q_f)
+            else:
+                print(f"[{self._split}] Tokenizing answers...")
+                for i in tqdm(range(len(self.answers))):
+                    self.answers[i] = word_tokenize(self.answers[i])
+                # with open('/home/jkalogero/KBGN-Implementation/visdialch/data/answers_file', 'wb+') as q_f:
+                #     pickle.dump(self.answers, q_f)
 
-            print(f"[{self._split}] Tokenizing captions...")
-            for image_id, caption in tqdm(self.captions.items()):
-                self.captions[image_id] = word_tokenize(caption)
+            captions_file = Path("/home/jkalogero/KBGN-Implementation/visdialch/data/captions_file")
+            if captions_file.is_file():
+                with open('/home/jkalogero/KBGN-Implementation/visdialch/data/captions_file', 'rb') as q_f:
+                    self.captions = pickle.load(q_f)
+            else:
+                print(f"[{self._split}] Tokenizing captions...")
+                for image_id, caption in tqdm(self.captions.items()):
+                    self.captions[image_id] = word_tokenize(caption)
+                # with open('/home/jkalogero/KBGN-Implementation/visdialch/data/captions_file', 'wb+') as q_f:
+                #     pickle.dump(self.captions, q_f)
 
     def __len__(self):
         return len(self.dialogs)
