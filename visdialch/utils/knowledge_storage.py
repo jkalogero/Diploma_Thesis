@@ -151,8 +151,8 @@ class KnowledgeStorage(nn.Module):
         mask1 = center_nodes.abs().sum(dim=-1).bool()
         cross_nodes = cross_nodes.unsqueeze(1).repeat(1,n_center,1,1)
         mask2 = cross_nodes.abs().sum(dim=-1).bool()
-        center_nodes[~mask2] = torch.zeros((center_nodes.shape[-1]))
-        cross_nodes[~mask1] = torch.zeros((cross_nodes.shape[-1]))
+        center_nodes[~mask2] = torch.zeros((center_nodes.shape[-1]), device=center_nodes.device)
+        cross_nodes[~mask1] = torch.zeros((cross_nodes.shape[-1]), device=cross_nodes.device)
         bridge_edges = torch.cat((center_nodes, cross_nodes), -1)
         # print("bridge_edges= ", bridge_edges)
         return bridge_edges

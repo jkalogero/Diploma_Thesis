@@ -143,8 +143,8 @@ class KBGN(nn.Module):
         # print(mask2.shape)
 
         # 
-        t_rel[~mask2] = torch.zeros((self.config["lstm_hidden_size"]))
-        tmp[~mask1] = torch.zeros((self.config["lstm_hidden_size"]))
+        t_rel[~mask2] = torch.zeros((self.config["lstm_hidden_size"]), device=t_rel.device)
+        tmp[~mask1] = torch.zeros((self.config["lstm_hidden_size"]), device=tmp.device)
         text_rel = torch.cat((t_rel, tmp), -1)
         # text_rel.shape = (4, 10, 10, 10, 1024)
         # torch.set_printoptions(threshold=10_000)
@@ -165,6 +165,6 @@ class KBGN(nn.Module):
         # final_embedding = final_embedding.view(batch_size, num_rounds, -1)
         final_embedding = self.KnowldgeRetrieval(I, H, ques_embed, batch_size, num_rounds)
         final_embedding = final_embedding.view(batch_size, num_rounds, -1)
-        print("final_embedding.shape = ", final_embedding.shape)
+        print("\nfinal_embedding.shape = ", final_embedding.shape)
         # final_embedding should have shape (batch_size, num_rounds, -1)
         return final_embedding

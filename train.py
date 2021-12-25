@@ -98,9 +98,7 @@ config = yaml.load(open(args.config_yml))
 
 if isinstance(args.gpu_ids, int): args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
-# DELETE LATER
-device = torch.device("cpu")
-print("device = ", device)
+
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
 for arg in vars(args):
@@ -122,6 +120,13 @@ train_dataloader = DataLoader(
     train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
 )
 
+val_dataset = VisDialDataset(
+    config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
+    in_memory=args.in_memory
+)
+val_dataloader = DataLoader(
+    val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
+)
 
 
 # Read GloVe word embedding data
@@ -185,7 +190,7 @@ decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token)
 # encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token, elmo_token)
 # decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
 print("Encoder: {}".format(config["model"]["encoder"]))
-# print("Decoder: {}".format(config["model"]["decoder"]))
+print("Decoder: {}".format(config["model"]["decoder"]))
 
 # # Share word embedding between encoder and decoder.
 # # decoder.word_embed = encoder.word_embed
@@ -193,9 +198,8 @@ print("Encoder: {}".format(config["model"]["encoder"]))
 # decoder.elmo_embed = encoder.elmo_embed
 # decoder.embed_change = encoder.embed_change
 
-# # Wrap encoder and decoder in a model
+# Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
-# print(model.device)
 # if -1 not in args.gpu_ids:
 #     model = nn.DataParallel(model, args.gpu_ids)
 
@@ -279,43 +283,44 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
 
         summary_writer.add_scalar("train/loss", batch_loss, global_iteration_step)
         summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step)
+        print("train/loss", batch_loss, global_iteration_step, sep='\t')        
+        print("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step, sep='\t')
+        if global_iteration_step <= iterations * config["solver"]["warmup_epochs"]:
+            scheduler.step(global_iteration_step)
+        else:
+            global_iteration_step_in_2 = iterations * config["solver"]["warmup_epochs"] + 1 - global_iteration_step
+            scheduler2.step(int(global_iteration_step_in_2))
+        global_iteration_step += 1
+        torch.cuda.empty_cache()
 
-#         if global_iteration_step <= iterations * config["solver"]["warmup_epochs"]:
-#             scheduler.step(global_iteration_step)
-#         else:
-#             global_iteration_step_in_2 = iterations * config["solver"]["warmup_epochs"] + 1 - global_iteration_step
-#             scheduler2.step(int(global_iteration_step_in_2))
-#         global_iteration_step += 1
-#         torch.cuda.empty_cache()
+    # --------------------------------------------------------------------------------------------
+    #   ON EPOCH END  (checkpointing and validation)
+    # --------------------------------------------------------------------------------------------
+    checkpoint_manager.step()
 
-#     # --------------------------------------------------------------------------------------------
-#     #   ON EPOCH END  (checkpointing and validation)
-#     # --------------------------------------------------------------------------------------------
-#     checkpoint_manager.step()
+    # Validate and report automatic metrics.
+    if args.validate:
 
-#     # Validate and report automatic metrics.
-#     if args.validate:
+        # Switch dropout, batchnorm etc to the correct mode.
+        model.eval()
 
-#         # Switch dropout, batchnorm etc to the correct mode.
-#         model.eval()
+        print(f"\nValidation after epoch {epoch}:")
+        for i, batch in enumerate(tqdm(val_dataloader)):
+            for key in batch:
+                batch[key] = batch[key].to(device)
+            with torch.no_grad():
+                output = model(batch)
+            sparse_metrics.observe(output, batch["ans_ind"])
+            if "gt_relevance" in batch:
+                output = output[torch.arange(output.size(0)), batch["round_id"] - 1, :]
+                ndcg.observe(output, batch["gt_relevance"])
 
-#         print(f"\nValidation after epoch {epoch}:")
-#         for i, batch in enumerate(tqdm(val_dataloader)):
-#             for key in batch:
-#                 batch[key] = batch[key].to(device)
-#             with torch.no_grad():
-#                 output = model(batch)
-#             sparse_metrics.observe(output, batch["ans_ind"])
-#             if "gt_relevance" in batch:
-#                 output = output[torch.arange(output.size(0)), batch["round_id"] - 1, :]
-#                 ndcg.observe(output, batch["gt_relevance"])
+        all_metrics = {}
+        all_metrics.update(sparse_metrics.retrieve(reset=True))
+        all_metrics.update(ndcg.retrieve(reset=True))
+        for metric_name, metric_value in all_metrics.items():
+            print(f"{metric_name}: {metric_value}")
+        summary_writer.add_scalars("metrics", all_metrics, global_iteration_step)
 
-#         all_metrics = {}
-#         all_metrics.update(sparse_metrics.retrieve(reset=True))
-#         all_metrics.update(ndcg.retrieve(reset=True))
-#         for metric_name, metric_value in all_metrics.items():
-#             print(f"{metric_name}: {metric_value}")
-#         summary_writer.add_scalars("metrics", all_metrics, global_iteration_step)
-
-#         model.train()
-#         torch.cuda.empty_cache()
+        model.train()
+        torch.cuda.empty_cache()

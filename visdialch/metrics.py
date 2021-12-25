@@ -114,7 +114,7 @@ class NDCG(object):
         predicted_ranks = scores_to_ranks(predicted_scores)
 
         # shape: (batch_size, num_options)
-        predicted_ranks = predicted_ranks.squeeze()
+        predicted_ranks = predicted_ranks.squeeze(1) # CHECK
         batch_size, num_options = predicted_ranks.size()
 
         k = torch.sum(target_relevance != 0, dim=-1)
