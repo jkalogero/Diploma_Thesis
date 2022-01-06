@@ -8,7 +8,7 @@ from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 
 class KBGN(nn.Module):
-    def __init__(self, config, vocabulary, glove):
+    def __init__(self, config, vocabulary, glove, elmo):
         super(KBGN, self).__init__()
         self.config = config
 
@@ -17,9 +17,21 @@ class KBGN(nn.Module):
         )
         self.glove_embed.weight.data = glove
 
+        self.elmo_embed = nn.Embedding(
+            len(vocabulary), config["elmo_embedding_size"]
+        )
+        
+        self.elmo_embed.weight.data = elmo
+        # self.glove_embed.weight.requires_grad = False
+        self.elmo_embed.weight.requires_grad = False
+
+        self.embed_change = nn.Linear(
+            config["elmo_embedding_size"],config["word_embedding_size"]
+        )
+
         self.q_rnn = nn.LSTM(
-            # config["glove_embedding_size"] + config["word_embedding_size"],   CHANGE
-            config["glove_embedding_size"],
+            config["glove_embedding_size"] + config["word_embedding_size"],
+            # config["glove_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
             batch_first=True,
@@ -61,21 +73,21 @@ class KBGN(nn.Module):
         # print("ques.device = ",ques.device)
         ques_embed_glove = self.glove_embed(ques)
         ques_embed_glove = self.dropout(ques_embed_glove)# delete
-        # ques_embed_elmo = self.elmo_embed(ques)
-        # ques_embed_elmo = self.dropout(ques_embed_elmo)
-        # ques_embed_elmo = self.embed_change(ques_embed_elmo)
-        # ques_embed = torch.cat((ques_embed_glove,ques_embed_elmo),-1)
-        _, (ques_embed, _) = self.q_rnn(ques_embed_glove, batch["ques_len"])
+        ques_embed_elmo = self.elmo_embed(ques)
+        ques_embed_elmo = self.dropout(ques_embed_elmo)
+        ques_embed_elmo = self.embed_change(ques_embed_elmo)
+        ques_embed = torch.cat((ques_embed_glove,ques_embed_elmo),-1)
+        _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         # print("ques_embed.shape = ", ques_embed.shape)
 
         # Embed history
         hist = hist.view(batch_size * num_rounds, max_sequence_length * 2)
         hist_embed_glove = self.glove_embed(hist)
-        hist_embed_glove = self.dropout(hist_embed_glove) # delete
-        # hist_embed_elmo = self.elmo_embed(hist)
-        # hist_embed_elmo = self.dropout(hist_embed_elmo)
-        # hist_embed_elmo = self.embed_change(hist_embed_elmo)
-        # hist_embed = torch.cat((hist_embed_glove, hist_embed_elmo), -1)
+        # hist_embed_glove = self.dropout(hist_embed_glove) # delete
+        hist_embed_elmo = self.elmo_embed(hist)
+        hist_embed_elmo = self.dropout(hist_embed_elmo)
+        hist_embed_elmo = self.embed_change(hist_embed_elmo)
+        hist_embed = torch.cat((hist_embed_glove, hist_embed_elmo), -1)
         # print("hist_embed_glove.shape = ", hist_embed_glove.shape)
         
         _, (hist_embed, _) = self.hist_rnn(hist_embed_glove, batch["hist_len"])
@@ -102,16 +114,11 @@ class KBGN(nn.Module):
 
             # print("print(padded_history[0][0]) = ", padded_history[0][0])
             # print("print(padded_history[1][0]) = ", padded_history[1][0])
-            # tmp = maxpadded_history
             # maxpadded_history[:, :padded_history.size(1),:] = padded_history
             maxpadded_history = padded_history # FIX
-            # print("\n\n\t\tEQUAL ", torch.equal(tmp, maxpadded_history))
-            # maxpadded_history[:,:padded_history.size(1)]=padded_history
-            # print("print(maxpadded_history[0][0]) = ", maxpadded_history[0][0])
-            # print("\n\nNONZERO: ", torch.nonzero(padded_history))
-            # print("\n\nNONZERO: ", torch.nonzero(maxpadded_history))
+            
             maxpadded_history = maxpadded_history.unsqueeze(0)
-            # print(maxpadded_history[0][padded_history.size(1)-1])
+            
             if index == 0 :
                 f_history = maxpadded_history
             else:
@@ -119,19 +126,7 @@ class KBGN(nn.Module):
         
         
         # print("HIST = ", f_history.shape)   
-        # f_history.shape = (4, 10, 10, 512)
-        # print("first round")
-        # print(f_history[0][0][0])
-        # print(f_history[0][0][1])
-        # print("second round")
-        # print(f_history[0][1][0])
-        # print(f_history[0][1][1])
-        # print(f_history[0][1][2])
-        # print("third round")
-        # print(f_history[0][2][0])
-        # print(f_history[0][2][1])
-        # print(f_history[0][2][2])
-        # print(f_history[0][2][3])
+        # f_history.shape = (b, n_rounds, n_rounds, 512)
         # Create semantic relationships
         t_rel = f_history.view(batch_size, num_rounds, num_rounds, 1, self.config["lstm_hidden_size"]).repeat(1,1, 1, num_rounds, 1)
         # print("t_rel.shape = ", t_rel.shape)
@@ -146,7 +141,12 @@ class KBGN(nn.Module):
         t_rel[~mask2] = torch.zeros((self.config["lstm_hidden_size"]), device=t_rel.device)
         tmp[~mask1] = torch.zeros((self.config["lstm_hidden_size"]), device=tmp.device)
         text_rel = torch.cat((t_rel, tmp), -1)
+        # delete
+        # del t_rel
+        # del tmp
+
         # text_rel.shape = (4, 10, 10, 10, 1024)
+        
         # torch.set_printoptions(threshold=10_000)
         # torch.set_printoptions(linewidth=200)
         # print("text_rel.shape = ", text_rel.shape)
@@ -161,10 +161,10 @@ class KBGN(nn.Module):
 
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
+        # Knowledge Storage
         I, H = self.KnowldgeStorage(updated_v_nodes, updated_t_nodes, ques_embed, batch_size, num_rounds)
-        # final_embedding = final_embedding.view(batch_size, num_rounds, -1)
-        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed, batch_size, num_rounds)
+        # Knowledge Retrieval
+        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed)
         final_embedding = final_embedding.view(batch_size, num_rounds, -1)
-        print("\nfinal_embedding.shape = ", final_embedding.shape)
-        # final_embedding should have shape (batch_size, num_rounds, -1)
+        
         return final_embedding

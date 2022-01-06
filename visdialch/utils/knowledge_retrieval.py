@@ -12,7 +12,7 @@ class KnowledgeRetrieval(nn.Module):
         self.w_11 = nn.Linear(3*config["lstm_hidden_size"], config["lstm_hidden_size"])
 
 
-    def forward(self, I, H, Q, batch_size, num_rounds):
+    def forward(self, I, H, Q):
 
         gate_r = torch.sigmoid(self.w_r(torch.cat((Q,I,H), -1)))
         K = self.w_11(gate_r * torch.cat((Q,I,H), -1))
