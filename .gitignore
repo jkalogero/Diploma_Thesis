@@ -1,8 +1,10 @@
 data/*
 __pycache__/
 *.ipynb*
-checkpoints
+*checkpoint*
 .vscode
 testing_geometric.py
-notes
+*notes
 *_file
+log
+error.log

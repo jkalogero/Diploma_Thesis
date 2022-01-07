@@ -5,7 +5,7 @@ from torch.nn.functional import normalize
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
-from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader,CaptionReader
+from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader
 from visdialch.data.vocabulary import Vocabulary
 
 
@@ -18,13 +18,22 @@ class VisDialDataset(Dataset):
     def __init__(self,
                  config: Dict[str, Any],
                  dialogs_jsonpath: str,
-                 caption_jsonpath: str,
                  dense_annotations_jsonpath: Optional[str] = None,
                  overfit: bool = False,
-                 in_memory: bool = False):
+                 in_memory: bool = False,
+                 num_workers: int = 1,
+                 return_options: bool = True,
+                 add_boundary_toks: bool = False):
+
         super().__init__()
         self.config = config
-        self.dialogs_reader = DialogsReader(dialogs_jsonpath)
+        self.return_options = return_options
+        self.add_boundary_toks = add_boundary_toks
+        self.dialogs_reader = DialogsReader(
+            dialogs_jsonpath,
+            num_examples=(5 if overfit else None),
+            num_workers=num_workers
+        )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
             self.annotations_reader = DenseAnnotationsReader(dense_annotations_jsonpath)
@@ -49,7 +58,7 @@ class VisDialDataset(Dataset):
         if overfit:
             self.image_ids = self.image_ids[:5]
 
-#        self.captions_reader = CaptionReader(caption_jsonpath)
+
 
     @property
     def split(self):
@@ -63,9 +72,10 @@ class VisDialDataset(Dataset):
         image_id = self.image_ids[index]
 
         # Get image features for this image_id using hdf reader.
-        image_features = self.hdf_reader[image_id]
+        image_features,image_relation = self.hdf_reader[image_id]
         image_features = torch.tensor(image_features, dtype=torch.float)
-        image_relation = self._get_relations()#relation
+        image_relation = torch.tensor(image_relation, dtype=torch.float)
+        
         # Normalize image features at zero-th dimension (since there's no batch dimension).
         if self.config["img_norm"]:
             image_features = normalize(image_features, dim=0, p=2)
@@ -79,12 +89,28 @@ class VisDialDataset(Dataset):
         caption = self.vocabulary.to_indices(caption)
         for i in range(len(dialog)):
             dialog[i]["question"] = self.vocabulary.to_indices(dialog[i]["question"])
-            dialog[i]["answer"] = self.vocabulary.to_indices(dialog[i]["answer"])
-
-            for j in range(len(dialog[i]["answer_options"])):
-                dialog[i]["answer_options"][j] = self.vocabulary.to_indices(
-                    dialog[i]["answer_options"][j]
+            
+            if self.add_boundary_toks:
+                dialog[i]["answer"] = self.vocabulary.to_indices(
+                    [self.vocabulary.SOS_TOKEN]
+                    + dialog[i]["answer"]
+                    + [self.vocabulary.EOS_TOKEN]
                 )
+            else:
+                dialog[i]["answer"] = self.vocabulary.to_indices(
+                    dialog[i]["answer"]
+                )
+
+            if self.return_options:
+                for j in range(len(dialog[i]["answer_options"])):
+                    if self.add_boundary_toks:
+                        dialog[i]["answer_options"][j] = self.vocabulary.to_indices(
+                            [self.vocabulary.SOS_TOKEN]
+                            + dialog[i]["answer_options"][j]
+                            + [self.vocabulary.EOS_TOKEN])
+                    else:
+                        dialog[i]["answer_options"][j] = self.vocabulary.to_indices(
+                            dialog[i]["answer_options"][j])
 
         questions, question_lengths = self._pad_sequences(
             [dialog_round["question"] for dialog_round in dialog]
@@ -94,11 +120,17 @@ class VisDialDataset(Dataset):
             [dialog_round["question"] for dialog_round in dialog],
             [dialog_round["answer"] for dialog_round in dialog]
         )
-        alt_history, alt_history_lengths = self._get_history_alt(
-            caption,
-            [dialog_round["question"] for dialog_round in dialog],
-            [dialog_round["answer"] for dialog_round in dialog]
+        answers_in, answer_lengths = self._pad_sequences(
+            [dialog_round["answer"][:-1] for dialog_round in dialog]
         )
+        answers_out, _ = self._pad_sequences(
+            [dialog_round["answer"][1:] for dialog_round in dialog]
+        )
+        # alt_history, alt_history_lengths = self._get_history_alt(
+        #     caption,
+        #     [dialog_round["question"] for dialog_round in dialog],
+        #     [dialog_round["answer"] for dialog_round in dialog]
+        # )
         # print("HISTORY ALT[0][0][0] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[0][0]])
         # print("HISTORY ALT[0][1][0] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][0]])
         # print("HISTORY ALT[0][1][1] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][1]])
@@ -115,16 +147,6 @@ class VisDialDataset(Dataset):
             answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
         
 
-#        captions_dic = self.captions_reader[image_id]
-#        captions_mul = captions_dic["captions"]
-#        captions_new = [] 
-#        for i in range(len(captions_mul)):
-#            captions_each = self.vocabulary.to_indices(captions_mul[i])
-#            captions_new.append(captions_each)
-
- #       captions_new ,captions_len = self._pad_captions(captions_new)
-
-
 
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
         # questions, history, etc. are converted to LongTensors, for nn.Embedding input.
@@ -134,16 +156,63 @@ class VisDialDataset(Dataset):
         item["relations"] = image_relation
         item["ques"] = questions.long()
         item["hist"] = history.long()
-        item["opt"] = answer_options.long()
+        item["ans_in"] = answers_in.long()
+        item["ans_out"] = answers_out.long()
         item["ques_len"] = torch.tensor(question_lengths).long()
         item["hist_len"] = torch.tensor(history_lengths).long()
-        item["opt_len"] = torch.tensor(answer_option_lengths).long()
+        item["ans_len"] = torch.tensor(answer_lengths).long()
+        # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
-        item["alt_hist"] = alt_history.long()
-        item["alt_hist_len"] = torch.tensor(alt_history_lengths).long()
-        # print('item["hist"] = ', item["hist"].shape)
-        if "test" not in self.split:
-            item["ans_ind"] = torch.tensor(answer_indices).long()
+        
+        if self.return_options:
+            if self.add_boundary_toks:
+                answer_options_in, answer_options_out = [], []
+                answer_option_lengths = []
+                for dialog_round in dialog:
+                    options, option_lengths = self._pad_sequences(
+                        [
+                            option[:-1]
+                            for option in dialog_round["answer_options"]
+                        ]
+                    )
+                    answer_options_in.append(options)
+
+                    options, _ = self._pad_sequences(
+                        [
+                            option[1:]
+                            for option in dialog_round["answer_options"]
+                        ]
+                    )
+                    answer_options_out.append(options)
+
+                    answer_option_lengths.append(option_lengths)
+                answer_options_in = torch.stack(answer_options_in, 0)
+                answer_options_out = torch.stack(answer_options_out, 0)
+
+                item["opt_in"] = answer_options_in.long()
+                item["opt_out"] = answer_options_out.long()
+                item["opt_len"] = torch.tensor(answer_option_lengths).long()
+            else:
+                answer_options = []
+                answer_option_lengths = []
+                for dialog_round in dialog:
+                    options, option_lengths = self._pad_sequences(
+                        dialog_round["answer_options"]
+                    )
+                    answer_options.append(options)
+                    answer_option_lengths.append(option_lengths)
+                answer_options = torch.stack(answer_options, 0)
+
+                item["opt"] = answer_options.long()
+                item["opt_len"] = torch.tensor(answer_option_lengths).long()
+
+            if "test" not in self.split:
+                answer_indices = [
+                    dialog_round["gt_index"] for dialog_round in dialog
+                ]
+                item["ans_ind"] = torch.tensor(answer_indices).long()
+
+        
 
         # Gather dense annotations.
         if "val" in self.split:
@@ -152,9 +221,6 @@ class VisDialDataset(Dataset):
             item["round_id"] = torch.tensor(dense_annotations["round_id"]).long()
 
 
-        #关于caption的相关参数
-#        item["captions_len"] = torch.tensor(captions_len).long()
-#        item["captions"] = captions_new.long()
 
 
         return item

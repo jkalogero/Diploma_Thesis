@@ -96,8 +96,11 @@ args = parser.parse_args()
 # keys: {"dataset", "model", "solver"}
 config = yaml.load(open(args.config_yml))
 
-if isinstance(args.gpu_ids, int): args.gpu_ids = [args.gpu_ids]
+if isinstance(args.gpu_ids, int): 
+    args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+# device = torch.device("cpu")
+torch.cuda.set_device(device)
 
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
@@ -114,18 +117,31 @@ for arg in vars(args):
 # ================================================================================================
 
 train_dataset = VisDialDataset(
-    config["dataset"], args.train_json, args.captions_train_json, overfit=args.overfit, in_memory=args.in_memory
+    config["dataset"], 
+    args.train_json, 
+    overfit=args.overfit, 
+    in_memory=args.in_memory,
+    num_workers=args.cpu_workers
 )
 train_dataloader = DataLoader(
-    train_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers, shuffle=True
+    train_dataset, 
+    batch_size=config["solver"]["batch_size"], 
+    num_workers=args.cpu_workers, 
+    shuffle=True
 )
 
 val_dataset = VisDialDataset(
-    config["dataset"], args.val_json, args.captions_val_json, args.val_dense_json, overfit=args.overfit,
-    in_memory=args.in_memory
+    config["dataset"], 
+    args.val_json, 
+    dense_annotations_jsonpath=args.val_dense_json, 
+    overfit=args.overfit,
+    in_memory=args.in_memory,
+    num_workers=args.cpu_workers
 )
 val_dataloader = DataLoader(
-    val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
+    val_dataset, 
+    batch_size=config["solver"]["batch_size"], 
+    num_workers=args.cpu_workers
 )
 
 
@@ -162,49 +178,55 @@ glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
 # Read ELMo word embedding data
-# with open(config["dataset"]["elmopath"], "r") as elmo_file:
-#     elmo = json.load(elmo_file)
-# KAT = []
-# for key in elmo.keys():
-#     keylist = [key]
-#     token = glovevocabulary.to_indices(keylist)
-#     key_and_token = keylist + token
-#     KAT.append(key_and_token)
-# elmo_token = {}
-# for item in KAT:
-#     elmo_token[item[1]] = elmo[item[0]]
+with open(config["dataset"]["elmopath"], "r") as elmo_file:
+    elmo = json.load(elmo_file)
+KAT = []
+for key in elmo.keys():
+    keylist = [key]
+    token = glovevocabulary.to_indices(keylist)
+    key_and_token = keylist + token
+    KAT.append(key_and_token)
+elmo_token = {}
+for item in KAT:
+    elmo_token[item[1]] = elmo[item[0]]
 
-# elmo_list = []
-# for i in range(len(glovevocabulary)):
-#     if i in elmo_token.keys():
-#         elmo_list.append(elmo_token[i])
-#     else:
-#         randArray = random.random(size=(1, 1024)).tolist()
-#         elmo_list.append(randArray[0])
-# elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
+elmo_list = []
+for i in range(len(glovevocabulary)):
+    if i in elmo_token.keys():
+        elmo_list.append(elmo_token[i])
+    else:
+        randArray = random.random(size=(1, 1024)).tolist()
+        elmo_list.append(randArray[0])
+elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
 
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token)
-decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token)
-# encoder = Encoder(config["model"], sub_dataset.vocabulary, glove_token, elmo_token)
-# decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
-# # Share word embedding between encoder and decoder.
-# # decoder.word_embed = encoder.word_embed
-# decoder.glove_embed = encoder.glove_embed
-# decoder.elmo_embed = encoder.elmo_embed
-# decoder.embed_change = encoder.embed_change
+# Share word embedding between encoder and decoder.
+decoder.glove_embed = encoder.glove_embed
+decoder.elmo_embed = encoder.elmo_embed
+decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
 # if -1 not in args.gpu_ids:
 #     model = nn.DataParallel(model, args.gpu_ids)
 
+
 # Loss function.
-criterion = nn.CrossEntropyLoss()
+if config["model"]["decoder"] == "disc":
+    criterion = nn.CrossEntropyLoss()
+elif config["model"]["decoder"] == "gen":
+    criterion = nn.CrossEntropyLoss(
+        ignore_index=train_dataset.vocabulary.PAD_INDEX
+    )
+else:
+    raise NotImplementedError
+
 
 if config["solver"]["training_splits"] == "trainval":
     iterations = (len(train_dataset) + len(val_dataset)) // config["solver"]["batch_size"] + 1
@@ -214,6 +236,11 @@ else:
 
 # lr_scheduler 1
 def lr_lambda_fun(current_iteration: int) -> float:
+    """
+    Returns a learning rate multiplier.
+    Till `warmup_epochs`, learning rate linearly increases to `initial_lr`,
+    and then gets multiplied by `lr_gamma` every time a milestone is crossed.
+    """
 
     current_epoch = float(current_iteration) / iterations
     if current_epoch <= config["solver"]["warmup_epochs"]:
@@ -254,9 +281,9 @@ else:
     optimizer.load_state_dict(optimizer_state_dict)
     print("Loaded model from {}".format(args.load_pthpath))
 
-# # ================================================================================================
-# #   TRAINING LOOP
-# # ================================================================================================
+# ================================================================================================
+#   TRAINING LOOP
+# ================================================================================================
 
 # Forever increasing counter keeping track of iterations completed (for tensorboard logging).
 global_iteration_step = start_epoch * iterations
@@ -275,6 +302,7 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
             batch[key] = batch[key].to(device)
+       
         optimizer.zero_grad()
         output = model(batch)
         batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
@@ -283,15 +311,15 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
 
         summary_writer.add_scalar("train/loss", batch_loss, global_iteration_step)
         summary_writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step)
-        print("train/loss", batch_loss, global_iteration_step, sep='\t')        
-        print("train/lr", optimizer.param_groups[0]["lr"], global_iteration_step, sep='\t')
+        
+        
         if global_iteration_step <= iterations * config["solver"]["warmup_epochs"]:
             scheduler.step(global_iteration_step)
         else:
             global_iteration_step_in_2 = iterations * config["solver"]["warmup_epochs"] + 1 - global_iteration_step
             scheduler2.step(int(global_iteration_step_in_2))
         global_iteration_step += 1
-        torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
 
     # --------------------------------------------------------------------------------------------
     #   ON EPOCH END  (checkpointing and validation)
