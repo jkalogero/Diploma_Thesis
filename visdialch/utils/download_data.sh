@@ -9,3 +9,10 @@ cd ../../
 mkdir -p /home/$USER/KBGN-Implementation/data/transe/
 wget -nc -P /home/$USER/KBGN-Implementation/data/transe/ https://csr.s3-us-west-1.amazonaws.com/glove.transe.sgd.ent.npy
 wget -nc -P /home/$USER/KBGN-Implementation/data/transe/ https://csr.s3-us-west-1.amazonaws.com/glove.transe.sgd.rel.npy
+
+
+# download numberbatch embeddings
+wget -nc -P /home/$USER/KBGN-Implementation/data/transe/ https://conceptnet.s3.amazonaws.com/downloads/2019/numberbatch/numberbatch-en-19.08.txt.gz
+cd /home/$USER/KBGN-Implementation/data/transe/
+yes n | gzip -d numberbatch-en-19.08.txt.gz
+cd ../
