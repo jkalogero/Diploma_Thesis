@@ -1,4 +1,4 @@
-data/*
+KBGN-Implementation/data/*
 __pycache__/
 *.ipynb*
 *checkpoint*

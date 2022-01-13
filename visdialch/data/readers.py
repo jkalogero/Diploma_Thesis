@@ -48,8 +48,7 @@ class DialogsReader(object):
     ):
         with open(dialogs_jsonpath, "r") as visdial_file:
             visdial_data = json.load(visdial_file)
-            # self._split = visdial_data["split"] # FIX
-            self._split = 'train'
+            self._split = visdial_data["split"]
 
             # Maintain questions and answers as a dict instead of list because
             # they are referenced by index in dialogs. We drop elements from
