@@ -5,6 +5,7 @@ import getpass
 import numpy as np
 from tqdm import tqdm
 import spacy
+import en_core_web_sm
 import json
 
 from conceptnet import extract_english, construct_graph
@@ -135,17 +136,64 @@ def load_vectors_from_npy_with_vocab(emb_npy_path, emb_vocab_path, vocab, verbos
         return vectors
     np.save(save_path, vectors)
 
-def tokenize_statement_file(statement_path, output_path):
-    nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
-    nrow = sum(1 for _ in open(statement_path, 'r'))
-    with open(statement_path, 'r', encoding='utf-8') as fin, open(output_path, 'w', encoding='utf-8') as fout:
-        for line in tqdm(fin, total=nrow, desc='tokenizing'):
-            data = json.loads(line)
-            for statement in data['statements']:
-                tokens = [tok.text.lower() for tok in nlp(statement['statement'])]
-                # tokens = [tok.text.lower() for tok in nlp(sent)]
-                fout.write(' '.join(tokens) + '\n')
+def tokenize_statement_file(dialog_path, output_path, concat=False):
+    """
+    Tokenize the dialogs and create json files with key the image_id
+    and values the dialogs.
 
+    Parameters
+    ----------
+    dialog_path: str
+        Path to the dataset's dialogs file.
+
+    output_path: str
+        Path to the resulted JSON file.
+        Format: 
+            keys: image_id
+            values: dialog
+    
+    concat: Boolean
+        If True the history will contain concatenated QA pairs from 
+        previous rounds.
+    """
+
+    print("Tokenizing {dialog_path} file.")
+    nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
+    cnt = sum(1 for _ in open(dialog_path, 'r'))
+
+    tokens = {}
+    
+    with open(dialog_path, 'r', encoding='utf-8') as fin:
+        data = json.load(fin)
+        dialogs = data['data']['dialogs']
+        answers = data['data']['answers']
+        questions = data['data']['questions']
+        
+    for dialog in tqdm(dialogs, total=cnt, desc='tokenizing'):
+        
+        history = [[tokenize_sentence_spacy(nlp, dialog['caption'])]] \
+        + [[tokenize_sentence_spacy(nlp, questions[round['question']])] \
+           + [tokenize_sentence_spacy(nlp, answers[round['answer']])] \
+               for round in dialog['dialog']]
+        
+        # if concatenate
+        if concat:
+            concatenated_history = []
+            concatenated_history.append([dialog['caption']])
+            for i in range(1, len(history)):
+                concatenated_history.append([])
+                for j in range(i + 1):
+                    concatenated_history[i].extend(history[j])
+            history = concatenated_history
+
+        tokens[dialog['image_id']] = history
+        
+    with open(output_path, 'w', encoding='utf-8') as fout:
+        fout.write(json.dumps(tokens))
+
+def tokenize_sentence_spacy(nlp, sent, lower_case=True, convert_num=False):
+    tokens = ' '.join([tok.text.lower() for tok in nlp(sent)])
+    return tokens
 
 def main():
 
@@ -211,7 +259,7 @@ def main():
     # ==================================================================================
     # Preprocess dataset files.
     # ==================================================================================
-
+    tokenize_statement_file()
     
 
 
