@@ -2,11 +2,14 @@ import os
 import argparse
 from multiprocessing import cpu_count
 import getpass
+from typing import List
 import numpy as np
 from tqdm import tqdm
-import spacy
+import spacy #takes long
+from spacy.matcher import Matcher
 import en_core_web_sm
 import json
+import nltk
 
 from conceptnet import extract_english, construct_graph
 from grounding import create_matcher_patterns
@@ -26,10 +29,18 @@ WORKING_DIR = os.getcwd()
 DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
-jsonl_paths = {
-    'train_jsonl': DATA_DIR + 'train.jsonl', 
-    'val_jsonl': DATA_DIR + 'val.jsonl',
-    'test_jsonl': DATA_DIR + 'test.jsonl'
+splits = ['train', 'val', 'test']
+
+dataset_paths = {
+    'train': DATA_DIR + 'visdial_1.0_train.json',
+    'val': DATA_DIR + 'visdial_1.0_val.json',
+    'test': DATA_DIR + 'visdial_1.0_test.json'
+}
+
+dataset_tokenized_paths = {
+    'train': DATA_DIR + 'visdial_1.0_train_tokenized.json',
+    'val': DATA_DIR + 'visdial_1.0_val_tokenized.json',
+    'test': DATA_DIR + 'visdial_1.0_test_tokenized.json'
 }
 
 conceptnet_csv_file = DATA_DIR + 'cpnet/conceptnet-assertions-5.6.0.csv'
@@ -44,13 +55,29 @@ glove_npy = DATA_DIR + 'glove.6B.300d.npy'
 glove_vocab = DATA_DIR + 'glove.vocab'
 
 numberbatch_file = DATA_DIR + 'transe/numberbatch-en-19.08.txt'
-numberbatch_npy = DATA_DIR + 'transe/nb.npy',
-numberbatch_vocab = DATA_DIR + 'transe/nb.vocab',
+numberbatch_npy = DATA_DIR + 'transe/nb.npy'
+numberbatch_vocab = DATA_DIR + 'transe/nb.vocab'
 numberbatch_concept_npy = DATA_DIR + 'transe/concept.nb.npy'
 
+grounded = {
+    'train': DATA_DIR + 'train_grounded.json',
+    'val': DATA_DIR + 'val_grounded.json',
+    'test': DATA_DIR + 'test_grounded.json'
+}
 
 
-def load_embeddings(path, embedding=False, add_special_tokens=None, random_state=0):
+
+nltk.download('stopwords', quiet=True)
+nltk_stopwords = nltk.corpus.stopwords.words('english')
+
+def files_exist(files: List):
+    """
+    Function that checks if all the files listed exist.
+    """
+    return all([os.path.isfile(_file) for _file in files])
+
+
+def load_embeddings(path, embedding='glove', add_special_tokens=EXTRA_TOKS, random_state=0):
     vocab = []
     embeddings = None
     cnt = sum(1 for _ in open(path, 'r', encoding='utf-8')) # number of lines in file
@@ -76,7 +103,7 @@ def load_embeddings(path, embedding=False, add_special_tokens=None, random_state
     return vocab, embeddings
 
 
-def embeddings2npy(emb_path, output_npy_path, output_vocab_path, embedding):
+def embeddings2npy(emb_path, output_npy_path, output_vocab_path, embedding='glove'):
     """
     Extract the embeddings GloVe or Numberbatch to .npy files and the vocab
     files.
@@ -136,7 +163,7 @@ def load_vectors_from_npy_with_vocab(emb_npy_path, emb_vocab_path, vocab, verbos
         return vectors
     np.save(save_path, vectors)
 
-def tokenize_statement_file(dialog_path, output_path, concat=False):
+def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
     """
     Tokenize the dialogs and create json files with key the image_id
     and values the dialogs.
@@ -152,12 +179,12 @@ def tokenize_statement_file(dialog_path, output_path, concat=False):
             keys: image_id
             values: dialog
     
-    concat: Boolean
+    concat: bool
         If True the history will contain concatenated QA pairs from 
         previous rounds.
     """
 
-    print("Tokenizing {dialog_path} file.")
+    print(f'Tokenizing {dialog_path} file.')
     nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
     cnt = sum(1 for _ in open(dialog_path, 'r'))
 
@@ -165,16 +192,21 @@ def tokenize_statement_file(dialog_path, output_path, concat=False):
     
     with open(dialog_path, 'r', encoding='utf-8') as fin:
         data = json.load(fin)
+        split = data['split']
         dialogs = data['data']['dialogs']
+        if debug:
+            dialogs = dialogs[:5]
         answers = data['data']['answers']
         questions = data['data']['questions']
-        
+    
+
     for dialog in tqdm(dialogs, total=cnt, desc='tokenizing'):
-        
+
         history = [[tokenize_sentence_spacy(nlp, dialog['caption'])]] \
-        + [[tokenize_sentence_spacy(nlp, questions[round['question']])] \
-           + [tokenize_sentence_spacy(nlp, answers[round['answer']])] \
-               for round in dialog['dialog']]
+            + [[tokenize_sentence_spacy(nlp, questions[_round['question']])] \
+            + ([tokenize_sentence_spacy(nlp, answers[_round['answer']])] if 'answer' in _round.keys() else []) \
+            for _round in dialog['dialog']]
+
         
         # if concatenate
         if concat:
@@ -191,14 +223,200 @@ def tokenize_statement_file(dialog_path, output_path, concat=False):
     with open(output_path, 'w', encoding='utf-8') as fout:
         fout.write(json.dumps(tokens))
 
-def tokenize_sentence_spacy(nlp, sent, lower_case=True, convert_num=False):
+def tokenize_sentence_spacy(nlp, sent):
     tokens = ' '.join([tok.text.lower() for tok in nlp(sent)])
     return tokens
+
+def load_matcher(nlp, pattern_path):
+    """
+    Load the file with the patterns.
+    """
+    with open(pattern_path, "r", encoding="utf8") as fin:
+        all_patterns = json.load(fin)
+
+    matcher = Matcher(nlp.vocab)
+    for concept, pattern in all_patterns.items():
+        matcher.add(concept, None, pattern)
+    return matcher
+
+
+def load_cpnet_vocab(cpnet_vocab_path):
+    """
+    Load the file with the ConceptNet vocab.
+    """
+    with open(cpnet_vocab_path, "r", encoding="utf8") as fin:
+        cpnet_vocab = [l.strip() for l in fin]
+    cpnet_vocab = [c.replace("_", " ") for c in cpnet_vocab]
+    return cpnet_vocab
+
+def prune(data, cpnet_vocab_path):
+    # reload cpnet_vocab
+    with open(cpnet_vocab_path, "r", encoding="utf8") as fin:
+        cpnet_vocab = [l.strip() for l in fin]
+
+    prune_data = {}
+    for item in tqdm(data, total=len(data), desc='Prunning...'):
+        prune_data[item] = []
+        for _round in data[item]:
+            prune = []
+            for c in _round:
+                if c[-2:] == "er" and c[:-2] in _round:
+                    continue
+                if c[-1:] == "e" and c[:-1] in _round:
+                    continue
+                have_stop = False
+                # remove all concepts having stopwords, including hard-grounded ones
+                for t in c.split("_"):
+                    if t in nltk_stopwords:
+                        have_stop = True
+                if not have_stop and c in cpnet_vocab:
+                    prune.append(c)
+            
+            # item["qc"] = prune
+            prune_data[item].append(prune)
+    return prune_data
+
+def lemmatize(nlp, concept):
+    doc = nlp(concept.replace("_", " "))
+    lcs = set()
+    lcs.add("_".join([token.lemma_ for token in doc]))  # all lemma
+    return lcs
+
+def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, num_processes=1, debug=False):
+    """
+    Pair the entities present in the dialog/image with the
+    entities found in ConceptNet.
+
+    Parameters
+    ----------
+    input_path: str
+        Path to the dataset's tokenized file.
+
+    cpnet_vocab_path: str
+        Path to ConceptNet's vocab file.
+
+    pattern_path: str
+        Path to the file containing the matching patterns.
+    
+    output_path: str
+        Path to the resulted file.
+    
+    num_processes: int
+        Path to the file containing the matching patterns.
+    
+    debug: bool
+        Use only five examples if True.
+    """
+    
+    with open(input_path, 'r', encoding='utf-8') as fin:
+        data = json.load(fin)
+    
+    if debug and len(data) > 2:
+        print("Debug with big file.")
+        data = {k: data[k] for k in list(data.keys())[:2]}
+    
+    nlp = spacy.load('en_core_web_sm', disable=['ner', 'parser', 'textcat'])
+    nlp.add_pipe(nlp.create_pipe('sentencizer'))
+    matcher = load_matcher(nlp, pattern_path)
+    CPNET_VOCAB = load_cpnet_vocab(cpnet_vocab_path) #for hard ground...
+
+    blacklist = set(["-PRON-", "actually", "likely", "possibly", "want",
+                 "make", "my", "someone", "sometimes_people", "sometimes", "would", "want_to",
+                 "one", "something", "sometimes", "everybody", "somebody", "could", "could_be"
+                 ])
+
+    res = {}
+    for img_id, dialog in tqdm(data.items(), total=len(data), desc='Pairing...'):
+        # dialog is a list of all the rounds
+        res[img_id] = []
+        for i, _round in enumerate(dialog):
+            _round_t = ' '.join(_round)
+
+            doc = nlp(_round_t)
+            matches = matcher(doc)
+            mentioned_concepts = set()
+            span_to_concepts = {}
+
+            for match_id, start, end in matches:
+                span = doc[start:end].text  # the matched span
+                original_concept = nlp.vocab.strings[match_id]
+                original_concept_set = set()
+                original_concept_set.add(original_concept)
+
+                if len(original_concept.split("_")) == 1:
+                    # tag = doc[start].tag_
+                    # if tag in ['VBN', 'VBG']:
+
+                    original_concept_set.update(lemmatize(nlp, nlp.vocab.strings[match_id]))
+
+                if span not in span_to_concepts:
+                    span_to_concepts[span] = set()
+
+                span_to_concepts[span].update(original_concept_set)
+
+            for span, concepts in span_to_concepts.items():
+                concepts_sorted = list(concepts)
+                # print("span: ", span)
+                # print("concept_sorted: ", concepts_sorted)
+                concepts_sorted.sort(key=len)
+
+                # mentioned_concepts.update(concepts_sorted[0:2])
+
+                shortest = concepts_sorted[0:3]
+
+                for c in shortest:
+                    if c in blacklist:
+                        continue
+
+                    # a set with one string like: set("like_apples")
+                    lcs = lemmatize(nlp, c)
+                    intersect = lcs.intersection(shortest)
+                    if len(intersect) > 0:
+                        mentioned_concepts.add(list(intersect)[0])
+                    else:
+                        mentioned_concepts.add(c)
+
+                
+                # if a mention exactly matches with a concept
+                exact_match = set([concept for concept in concepts_sorted if concept.replace("_", " ").lower() == span.lower()])
+                # print("exact match: ", exact_match)
+                assert len(exact_match) < 2
+                mentioned_concepts.update(exact_match)
+
+            if len(mentioned_concepts) == 0:
+                print("AAAAAA\n\n"*13) # panic
+                break
+                
+            
+            mentioned_concepts = sorted(list(mentioned_concepts))
+            res[img_id].append(mentioned_concepts)
+    print("before\n",res)
+    res = prune(res, cpnet_vocab_path)
+    print("after\n",res)
+
+    # check_path(output_path)
+    with open(output_path, 'w', encoding='utf-8') as fout:
+        # for dic in res:
+        fout.write(json.dumps(res) + '\n')
+
+    print(f'grounded concepts saved to {output_path}.\n')
+            
+        
 
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--clear', type=bool, default=False, help='Extract everything from scratch.')
+    parser.add_argument(
+        '--clear', 
+        action="store_true", 
+        default=False, 
+        help='Extract everything from scratch.')
+
+    parser.add_argument(
+        '--debug', 
+        action="store_true",
+        default=False, 
+        help='Use only a 5 examples, for debugging reasons.')
 
     args = parser.parse_args()
 
@@ -207,59 +425,68 @@ def main():
         print("{:<20}: {}".format(arg, getattr(args, arg)))
 
 
-# print(jsonl_paths['train_jsonl'])
-# print(jsonl_paths['val_jsonl'])
-# print(jsonl_paths['test_jsonl'])
-
-# Create jsonl files if they do not exist
-# for file in jsonl_paths:
-#     if not os.path.isfile(jsonl_paths[file]):
-#         pass
-
 
     # GloVe
-    if not os.path.isfile(glove_npy) and not os.path.isfile(glove_vocab) or args.clear:
-        embeddings2npy(glove_file, glove_npy, glove_vocab)
+    if not files_exist([glove_npy, glove_vocab]) or args.clear:
+        embeddings2npy(glove_file, glove_npy, glove_vocab, 'glove')
     
     # Numberbatch
-    if not os.path.isfile(numberbatch_npy) and not os.path.isfile(numberbatch_vocab) or args.clear:
-        embeddings2npy(numberbatch_file, numberbatch_npy , numberbatch_vocab, True)
+    if not files_exist([numberbatch_npy, numberbatch_vocab]) or args.clear:
+        embeddings2npy(numberbatch_file, numberbatch_npy , numberbatch_vocab, 'numberbatch')
     
     # Extract English relations from ConceptNet and vocab 
     # if files don't exist
-    if not os.path.isfile(conceptnet_en_file) and not os.path.isfile(conceptnet_vocab_file) or args.clear:
+    if not files_exist([conceptnet_en_file, conceptnet_vocab_file]) or args.clear:
         extract_english(conceptnet_csv_file, conceptnet_en_file, conceptnet_vocab_file)
     
     # Load pretrained embeddings
-    load_pretrained_embeddings(
-        numberbatch_npy, 
-        numberbatch_vocab, 
-        conceptnet_vocab_file, 
-        False,
-        numberbatch_concept_npy)
+    if not files_exist([numberbatch_concept_npy]):
+        load_pretrained_embeddings(
+            numberbatch_npy, 
+            numberbatch_vocab, 
+            conceptnet_vocab_file, 
+            False,
+            numberbatch_concept_npy)
 
     # Construct Graph Unpruned
-    construct_graph(
-        conceptnet_en_file, 
-        conceptnet_vocab_file, 
-        conceptnet_unpruned_graph, 
-        False)
-    # Construct Graph Pruned
-    construct_graph(
-        conceptnet_en_file, 
-        conceptnet_vocab_file, 
-        conceptnet_pruned_graph, 
-        True)
+    if not files_exist([conceptnet_unpruned_graph, conceptnet_pruned_graph]) or args.clear:
+        construct_graph(
+            conceptnet_en_file, 
+            conceptnet_vocab_file, 
+            conceptnet_unpruned_graph, 
+            False)
+        # Construct Graph Pruned
+        construct_graph(
+            conceptnet_en_file, 
+            conceptnet_vocab_file, 
+            conceptnet_pruned_graph, 
+            True)
 
     # Create patterns for matching dataset entities with ConceptNet
     # entities.
-    create_matcher_patterns(conceptnet_vocab_file, conceptnet_patterns)
+    if not files_exist([conceptnet_patterns]) or args.clear:
+        create_matcher_patterns(conceptnet_vocab_file, conceptnet_patterns)
 
 
     # ==================================================================================
     # Preprocess dataset files.
     # ==================================================================================
-    tokenize_statement_file()
+    # Tokenize and create files with keys the image_id
+    if not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear:
+        for split in splits:
+            tokenize_dataset_file(
+                    dataset_paths[split], 
+                    dataset_tokenized_paths[split], 
+                    debug=args.debug)
+
+    # Pair the dataset entities with the ConceptNet entities
+    if not files_exist([grounded[split] for split in splits]) or args.clear:
+        for split in splits:
+            pairConcepts(dataset_tokenized_paths[split],
+                conceptnet_vocab_file, 
+                conceptnet_patterns, 
+                grounded[split],
+                debug=args.debug)
     
 
 
