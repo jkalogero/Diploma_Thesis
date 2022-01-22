@@ -5,7 +5,7 @@ import json
 from multiprocessing import Pool
 from tqdm import tqdm
 import time
-from conceptnet import merged_relations
+from .conceptnet import merged_relations
 from spacy.matcher import Matcher
 import networkx as nx
 
@@ -50,25 +50,25 @@ def getPath(source: str, target: str, ifprint=False):
 
     s = concept2id[source]
     t = concept2id[target]
+    if source == 'male' and target == 'person':
+        print('\n\n\ns: \n', s, '\nt:', t, '\n')
 
     if s not in cpnet_simple.nodes() or t not in cpnet_simple.nodes():
         return
 
 
     all_paths = []
-    cntt = 0
     try:
         for p in nx.shortest_simple_paths(cpnet_simple, source=s, target=t):
-            cntt+=1
-            print(p)
-            if cntt ==2: break
+            if source == 'male' and target == 'person':
+                print("ALKSJDLKAJSKDJ")
+                print('\n\n\npath: \n', p, '\n\n')
             if len(p) > 4 or len(all_paths) >= 100:  # top 100 paths
                 break
             if len(p) >= 2:  # skip paths of length 1
                 all_paths.append(p)
     except nx.exception.NetworkXNoPath:
         pass
-
     pf_res = []
     for p in all_paths:
         # print([id2concept[i] for i in p])
@@ -91,8 +91,12 @@ def getPath(source: str, target: str, ifprint=False):
                     print(id2concept[tgt_concept], end="")
         if ifprint:
             print()
-
+        if source == 'male' and target == 'person':
+            print('\n\n\tMALE PERSON will add to edges\n', {"path": p, "rel": rl}, '\n\n')
         pf_res.append({"path": p, "rel": rl})
+    
+        if source == 'male' and target == 'person':
+            print('\n\n\tpf_res\n', pf_res, '\n\n')
     return pf_res
 
 
@@ -106,6 +110,8 @@ def _findPaths(datalist):
         for c2 in data[-1]:
             if not c1 == c2:
                 rel = getPath(c1, c2)
+                if c1 == 'male' and c2 == 'person':
+                    print('\n\n\tMALE PERSON will add to edges\n', {'source': c1, 'target': c2, 'edges': rel}, '\n\n')
                 paths.append({'source': c1, 'target': c2, 'edges': rel})
     return (img_id, paths)    
 
@@ -129,6 +135,8 @@ def findPaths(grounded_path, cpnet_vocab_path, cpnet_graph_path, output_path, ra
     load_resources(cpnet_vocab_path) # could already exist?
     load_cpnet(cpnet_graph_path) # could already exist?
     
+    with open(grounded_path, 'r', encoding='utf-8') as fin:
+        data = json.load(fin)
     
     datalist = [(k, v) for k,v in data.items()]
     with Pool() as p:

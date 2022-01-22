@@ -270,7 +270,7 @@ if args.load_pthpath == "":
     start_epoch = 0
 else:
     # "path/to/checkpoint_xx.pth" -> xx
-    start_epoch = int(args.load_pthpath.split("_")[-1][:-4])
+    start_epoch = int(args.load_pthpath.split("_")[-1][:-4]) + 1
 
     model_state_dict, optimizer_state_dict = load_checkpoint(args.load_pthpath)
     if isinstance(model, nn.DataParallel):

@@ -2,7 +2,7 @@ from spacy.matcher import Matcher
 import networkx as nx
 import json
 
-from conceptnet import merged_relations
+from .conceptnet import merged_relations
 
 
 

@@ -97,15 +97,6 @@ def create_matcher_patterns(cpnet_vocab_path, output_path, debug=False):
 def lemmatize(nlp, concept):
     doc = nlp(concept.replace("_", " "))
     lcs = set()
-    # for i in range(len(doc)):
-    #     lemmas = []
-    #     for j, token in enumerate(doc):
-    #         if j == i:
-    #             lemmas.append(token.lemma_)
-    #         else:
-    #             lemmas.append(token.text)
-    #     lc = "_".join(lemmas)
-    #     lcs.add(lc)
     lcs.add("_".join([token.lemma_ for token in doc]))  # all lemma
     return lcs
 
@@ -182,11 +173,8 @@ def ground_mentioned_concepts(nlp, matcher, s, ans=None):
         # print("concept", original_concept)
         # print("Matched '" + span + "' to the rule '" + string_id)
 
-        # why do you lemmatize a mention whose len == 1?
-
+        
         if len(original_concept.split("_")) == 1:
-            # tag = doc[start].tag_
-            # if tag in ['VBN', 'VBG']:
 
             original_concept_set.update(lemmatize(nlp, nlp.vocab.strings[match_id]))
 
@@ -313,11 +301,7 @@ def prune(data, cpnet_vocab_path):
 
 
 def ground(statement_path, cpnet_vocab_path, pattern_path, output_path, num_processes=1, debug=False):
-    # global PATTERN_PATH, CPNET_VOCAB
-    # if PATTERN_PATH is None:
-    #     PATTERN_PATH = pattern_path
-    #     CPNET_VOCAB = load_cpnet_vocab(cpnet_vocab_path)
-
+    
     sents = []
     answers = []
     with open(statement_path, 'r', encoding='utf-8') as fin:
@@ -349,24 +333,4 @@ def ground(statement_path, cpnet_vocab_path, pattern_path, output_path, num_proc
         for dic in res:
             fout.write(json.dumps(dic) + '\n')
 
-    print(f'grounded concepts saved to {output_path}')
-    print()
-
-
-if __name__ == "__main__":
-    create_matcher_patterns("../data/cpnet/concept.txt", "./matcher_res.txt", True)
-    # ground("../data/statement/dev.statement.jsonl", "../data/cpnet/concept.txt", "../data/cpnet/matcher_patterns.json", "./ground_res.jsonl", 10, True)
-
-    # s = "a revolving door is convenient for two direction travel, but it also serves as a security measure at a bank."
-    # a = "bank"
-    # nlp = spacy.load('en_core_web_sm', disable=['ner', 'parser', 'textcat'])
-    # nlp.add_pipe(nlp.create_pipe('sentencizer'))
-    # ans_words = nlp(a)
-    # doc = nlp(s)
-    # ans_matcher = Matcher(nlp.vocab)
-    # print([{'TEXT': token.text.lower()} for token in ans_words])
-    # ans_matcher.add("ok", None, [{'TEXT': token.text.lower()} for token in ans_words])
-    #
-    # matches = ans_matcher(doc)
-    # for a, b, c in matches:
-    #     print(a, b, c)
+    print(f'grounded concepts saved to {output_path}.\n')
