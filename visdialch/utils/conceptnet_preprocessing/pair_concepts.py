@@ -58,9 +58,8 @@ def _pairConcepts(data_list):
                  "yes", "no"
                  ])
     
-    # res[img_id] = []
     paired_concepts = []
-    for i, _round in enumerate(dialog):
+    for i, _round in enumerate(dialog):   
         _round_t = ' '.join(_round)
 
         doc = nlp(_round_t)
@@ -107,16 +106,14 @@ def _pairConcepts(data_list):
                 else:
                     mentioned_concepts.add(c)
 
-            
             # if a mention exactly matches with a concept
-            exact_match = set([concept for concept in concepts_sorted if concept.replace("_", " ").lower() == span.lower()])
-            # print("exact match: ", exact_match)
-            assert len(exact_match) < 2
-            mentioned_concepts.update(exact_match)
+            # exact_match = set([concept for concept in concepts_sorted if concept.replace("_", " ").lower() == span.lower()])
+            # assert len(exact_match) < 2
+            # mentioned_concepts.update(exact_match)
 
         if len(mentioned_concepts) == 0:
-            print("AAAAAA\n\n"*13) # panic
-            break
+            print("No concepts added for this round.")
+            print(f'img_id = {img_id}, round = {_round}') 
             
         
         mentioned_concepts = sorted(list(mentioned_concepts))

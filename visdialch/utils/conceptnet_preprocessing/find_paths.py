@@ -4,7 +4,6 @@ import numpy as np
 import json
 from multiprocessing import Pool
 from tqdm import tqdm
-import time
 from .conceptnet import merged_relations
 from spacy.matcher import Matcher
 import networkx as nx
@@ -119,6 +118,15 @@ def _findPaths(datalist):
 def findPaths(grounded_path, cpnet_vocab_path, cpnet_graph_path, output_path, random_state=0):
     """
     Find paths between concepts on ConceptNet.
+    Constructs JSON file with keys the img_id and values
+    a list of all the pairs of concepts ONLY OF THE 
+    LAST ROUND. Each element
+    of the list is a dict with keys:
+        [source, target, edges]
+    The value of the key edges is a list of all the
+    paths from target to source.
+    The paths between the concepts of previous rounds will
+    take place after the path pruning.
 
     Parameters
     ----------

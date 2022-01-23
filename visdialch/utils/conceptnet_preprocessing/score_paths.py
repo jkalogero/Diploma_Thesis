@@ -92,7 +92,7 @@ def _scorePaths(datalist):
             path_scores = []
             for path in paths:
                 assert len(path["path"]) > 1
-                score = score_triples(concept_id=path["path"], relation_id=path["rel"], debug=True)
+                score = score_triples(concept_id=path["path"], relation_id=path["rel"])
                 path_scores.append(score)
             statement_scores.append(path_scores)
         else:

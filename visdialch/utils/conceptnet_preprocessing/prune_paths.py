@@ -7,11 +7,11 @@ from multiprocessing import Pool
 def _prunePaths(data_list):
 
     
-    img_id, paths, pairs_scores, threshold = data_list
+    img_id, paths, pairs_scores, grounded_path, threshold = data_list
 
     original_len = 0
     pruned_len = 0
-    for pair, pair_scores in zip(paths, pairs_scores):
+    for idx, (pair, pair_scores) in enumerate(zip(paths, pairs_scores)):
         original_paths = pair['edges']
         if original_paths is not None:
             pruned_paths = [p for p, score in zip(original_paths, pair_scores) if score >= threshold]
@@ -19,12 +19,13 @@ def _prunePaths(data_list):
             original_len += len(original_paths)
             pruned_len += len(pruned_paths)
             assert len(original_paths) >= len(pruned_paths)
-            pair['edges'] = pruned_paths
+            paths[idx]['edges'] = pruned_paths
     print("original_len: {}   pruned_len: {}   keep_rate: {:.4f}".format(original_len, pruned_len, pruned_len / original_len))
+    # all_paths = 
     return (img_id, paths)
     
     
-def prunePaths(paths, path_scores, output_path, threshold, verbose=True):
+def prunePaths(paths, path_scores, output_path, threshold, grounded_path, verbose=True):
     print(f'Pruning paths for {paths}...')
     
     
@@ -33,7 +34,7 @@ def prunePaths(paths, path_scores, output_path, threshold, verbose=True):
         
         paths = json.load(f_paths)
         scores = json.load(scores)
-        data_list = [(img_id, v, scores[img_id], threshold) for img_id, v in paths.items()]
+        data_list = [(img_id, v, scores[img_id], grounded_path, threshold) for img_id, v in paths.items()]
 
         with Pool() as p:
             res = {k:v for (k,v) in tqdm(p.imap(_prunePaths,data_list), total=len(paths), desc='Prunig paths...')}

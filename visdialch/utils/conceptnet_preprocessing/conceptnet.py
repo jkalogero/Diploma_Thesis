@@ -156,7 +156,7 @@ def construct_graph(cpnet_csv_path, cpnet_vocab_path, output_path, prune=True):
     nltk_stopwords += ["like", "gone", "did", "going", "would", "could",
                        "get", "in", "up", "may", "wanter"]  # issue: mismatch with the stop words in grouding.py
 
-    blacklist = set(["uk", "us", "take", "make", "object", "person", "people"])  # issue: mismatch with the blacklist in grouding.py
+    blacklist = set(["uk", "us", "take", "make", "object", "people"])  # issue: mismatch with the blacklist in grouding.py.. removed person
 
     concept2id = {}
     id2concept = {}

@@ -21,6 +21,7 @@ from conceptnet_preprocessing.pair_concepts import pairConcepts
 from conceptnet_preprocessing.find_paths import findPaths
 from conceptnet_preprocessing.score_paths import scorePaths
 from conceptnet_preprocessing.prune_paths import prunePaths
+from conceptnet_preprocessing.generate_subgraphs import generateSubgraphs
 
 sample = 5 # delete 
 
@@ -73,15 +74,15 @@ transe_ent = DATA_DIR + 'transe/glove.transe.sgd.ent.npy'
 transe_rel = DATA_DIR + 'transe/glove.transe.sgd.rel.npy'
 
 grounded = {
-    'train': DATA_DIR + str(sample) + '_train_grounded.json',
-    'val': DATA_DIR + str(sample) + '_val_grounded.json',
-    'test': DATA_DIR + str(sample) + '_test_grounded.json'
+    'train': DATA_DIR + 'train_grounded.json',
+    'val': DATA_DIR + 'val_grounded.json',
+    'test': DATA_DIR + 'test_grounded.json'
 }
 
 concepts_paths = {
-    'train': DATA_DIR + 'check_train_paths.json',
-    'val': DATA_DIR + 'check_val_paths.json',
-    'test': DATA_DIR + 'check_test_paths.json'
+    'train': DATA_DIR + 'train_paths.json',
+    'val': DATA_DIR + 'val_paths.json',
+    'test': DATA_DIR + 'test_paths.json'
 }
 
 scored_paths = {
@@ -94,6 +95,12 @@ pruned_concepts_paths = {
     'train': DATA_DIR + 'pruned_train_paths.json',
     'val': DATA_DIR + 'pruned_val_paths.json',
     'test': DATA_DIR + 'pruned_test_paths.json'
+}
+
+sub_graphs = {
+    'train': DATA_DIR + 'subgraphs_train_paths.json',
+    'val': DATA_DIR + 'subgraphs_val_paths.json',
+    'test': DATA_DIR + 'subgraphs_test_paths.json'
 }
 
 def files_exist(files: List):
@@ -189,6 +196,10 @@ def load_vectors_from_npy_with_vocab(emb_npy_path, emb_vocab_path, vocab, verbos
         return vectors
     np.save(save_path, vectors)
 
+def tokenize_sentence_spacy(nlp, sent):
+    tokens = [tok.text.lower() for tok in nlp(sent)]
+    return tokens
+
 def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
     """
     Tokenize the dialogs and create json files with key the image_id
@@ -218,7 +229,7 @@ def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
     
     with open(dialog_path, 'r', encoding='utf-8') as fin:
         data = json.load(fin)
-        split = data['split']
+        
         dialogs = data['data']['dialogs']
         if debug:
             dialogs = dialogs[:sample]
@@ -228,19 +239,15 @@ def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
 
     for dialog in tqdm(dialogs, total=cnt, desc='tokenizing'):
 
-        history = [tokenize_sentence_spacy(nlp, dialog['caption'])] \
-            + [tokenize_sentence_spacy(nlp, questions[_round['question']]) \
+        history = [tokenize_sentence_spacy(nlp, dialog['caption']) + tokenize_sentence_spacy(nlp, questions[dialog['dialog'][0]['question']])] \
+            + [tokenize_sentence_spacy(nlp, questions[dialog['dialog'][idx+1]['question']]) \
             + (tokenize_sentence_spacy(nlp, answers[_round['answer']]) if 'answer' in _round.keys() else []) \
-            for _round in dialog['dialog']]
+            for idx,_round in enumerate(dialog['dialog'][:-1])]
 
-        
+        tokens[dialog['image_id']] = history
         
     with open(output_path, 'w', encoding='utf-8') as fout:
         fout.write(json.dumps(tokens))
-
-def tokenize_sentence_spacy(nlp, sent):
-    tokens = [tok.text.lower() for tok in nlp(sent)]
-    return tokens
 
 
 
@@ -333,7 +340,8 @@ def main():
     if not files_exist([grounded[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
-            pairConcepts(dataset_tokenized_paths[split],
+            pairConcepts(
+                dataset_tokenized_paths[split],
                 conceptnet_vocab_file, 
                 conceptnet_patterns, 
                 grounded[split],
@@ -345,7 +353,8 @@ def main():
     if not files_exist([concepts_paths[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
-            findPaths(grounded[split],
+            findPaths(
+                grounded[split],
                 conceptnet_vocab_file,
                 conceptnet_pruned_graph,
                 concepts_paths[split])
@@ -355,7 +364,8 @@ def main():
     if not files_exist([scored_paths[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
-            scorePaths(concepts_paths[split],
+            scorePaths(
+                concepts_paths[split],
                 transe_ent,
                 transe_rel,
                 conceptnet_vocab_file,
@@ -366,13 +376,26 @@ def main():
     if not files_exist([pruned_concepts_paths[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
-            prunePaths(concepts_paths[split],
+            prunePaths(
+                concepts_paths[split],
                 scored_paths[split],
                 pruned_concepts_paths[split],
+                grounded[split],
                 args.prune_threshold
                 )
-        print("--- Completed path scoring in %s seconds. ---" % (time.time() - start_time))
+        print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
+    if not files_exist([sub_graphs[split] for split in splits]) or args.clear:
+        start_time = time.time()
+        for split in splits:
+            generateSubgraphs(
+                grounded[split],
+                pruned_concepts_paths[split],
+                conceptnet_vocab_file,
+                conceptnet_pruned_graph,
+                sub_graphs[split]
+                )
+        print("--- Completed generating subgraphs in %s seconds. ---" % (time.time() - start_time))
 
 if __name__ == '__main__':
     main()
