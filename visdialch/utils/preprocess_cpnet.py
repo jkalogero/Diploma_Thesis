@@ -21,7 +21,7 @@ from conceptnet_preprocessing.pair_concepts import pairConcepts
 from conceptnet_preprocessing.find_paths import findPaths
 from conceptnet_preprocessing.score_paths import scorePaths
 from conceptnet_preprocessing.prune_paths import prunePaths
-from conceptnet_preprocessing.generate_subgraphs import generateSubgraphs
+from conceptnet_preprocessing.generate_adj import generateAdj
 
 sample = 5 # delete 
 
@@ -97,10 +97,10 @@ pruned_concepts_paths = {
     'test': DATA_DIR + 'pruned_test_paths.json'
 }
 
-sub_graphs = {
-    'train': DATA_DIR + 'subgraphs_train_paths.json',
-    'val': DATA_DIR + 'subgraphs_val_paths.json',
-    'test': DATA_DIR + 'subgraphs_test_paths.json'
+sub_graphs_adj = {
+    'train': DATA_DIR + 'adj_train_paths.pk',
+    'val': DATA_DIR + 'adj_val_paths.pk',
+    'test': DATA_DIR + 'adj_test_paths.pk'
 }
 
 def files_exist(files: List):
@@ -385,15 +385,14 @@ def main():
                 )
         print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
-    if not files_exist([sub_graphs[split] for split in splits]) or args.clear:
+    if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
-            generateSubgraphs(
+            generateAdj(
                 grounded[split],
-                pruned_concepts_paths[split],
-                conceptnet_vocab_file,
                 conceptnet_pruned_graph,
-                sub_graphs[split]
+                conceptnet_vocab_file,
+                sub_graphs_adj[split]
                 )
         print("--- Completed generating subgraphs in %s seconds. ---" % (time.time() - start_time))
 
