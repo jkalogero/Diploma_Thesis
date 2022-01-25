@@ -350,40 +350,40 @@ def main():
 
     
 
-    if not files_exist([concepts_paths[split] for split in splits]) or args.clear:
-        start_time = time.time()
-        for split in splits:
-            findPaths(
-                grounded[split],
-                conceptnet_vocab_file,
-                conceptnet_pruned_graph,
-                concepts_paths[split])
-        print("--- Completed path exploring in %s seconds. ---" % (time.time() - start_time))
+    #if not files_exist([concepts_paths[split] for split in splits]) or args.clear:
+    #    start_time = time.time()
+    #    for split in splits:
+    ##        findPaths(
+    #            grounded[split],
+    #            conceptnet_vocab_file,
+    #            conceptnet_pruned_graph,
+    #            concepts_paths[split])
+    #    print("--- Completed path exploring in %s seconds. ---" % (time.time() - start_time))
     
 
-    if not files_exist([scored_paths[split] for split in splits]) or args.clear:
-        start_time = time.time()
-        for split in splits:
-            scorePaths(
-                concepts_paths[split],
-                transe_ent,
-                transe_rel,
-                conceptnet_vocab_file,
-                scored_paths[split]
-                )
-        print("--- Completed path scoring in %s seconds. ---" % (time.time() - start_time))
+    #if not files_exist([scored_paths[split] for split in splits]) or args.clear:
+    #    start_time = time.time()
+    #    for split in splits:
+    #        scorePaths(
+    #            concepts_paths[split],
+    #            transe_ent,
+    #            transe_rel,
+    #            conceptnet_vocab_file,
+    #            scored_paths[split]
+    #            )
+     #   print("--- Completed path scoring in %s seconds. ---" % (time.time() - start_time))
     
-    if not files_exist([pruned_concepts_paths[split] for split in splits]) or args.clear:
-        start_time = time.time()
-        for split in splits:
-            prunePaths(
-                concepts_paths[split],
-                scored_paths[split],
-                pruned_concepts_paths[split],
-                grounded[split],
-                args.prune_threshold
-                )
-        print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
+   # if not files_exist([pruned_concepts_paths[split] for split in splits]) or args.clear:
+   #     start_time = time.time()
+   #     for split in splits:
+   #         prunePaths(
+   #             concepts_paths[split],
+   #             scored_paths[split],
+   #             pruned_concepts_paths[split],
+   #             grounded[split],
+   #             args.prune_threshold
+   #             )
+    #    print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
     if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear:
         start_time = time.time()
