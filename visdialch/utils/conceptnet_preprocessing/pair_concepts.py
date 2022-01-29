@@ -9,6 +9,12 @@ import spacy
 from .loaders import load_matcher
 import nltk
 
+def load_cpnet_vocab(cpnet_vocab_path):
+    with open(cpnet_vocab_path, "r", encoding="utf8") as fin:
+        cpnet_vocab = [l.strip() for l in fin]
+    cpnet_vocab = [c.replace("_", " ") for c in cpnet_vocab]
+    return cpnet_vocab
+
 
 def lemmatize(nlp, concept):
     doc = nlp(concept.replace("_", " "))
@@ -16,10 +22,7 @@ def lemmatize(nlp, concept):
     lcs.add("_".join([token.lemma_ for token in doc]))  # all lemma
     return lcs
 
-def prune(data, cpnet_vocab_path):
-    # reload cpnet_vocab
-    with open(cpnet_vocab_path, "r", encoding="utf8") as fin:
-        cpnet_vocab = [l.strip() for l in fin]
+def prune(data, cpnet_vocab):
 
     pruned_data = []
     for _round in data:
@@ -65,13 +68,8 @@ def hard_ground(nlp, sent, cpnet_vocab, all_concepts):
 def _pairConcepts(data_list):
 
     start = time.time()
-    img_id, dialog, cpnet_vocab_path, pattern_path, concat = data_list
+    img_id, dialog, matcher, nlp , CPNET_VOCAB, concat = data_list
 
-    nlp = spacy.load('en_core_web_sm', disable=['ner', 'parser', 'textcat'])
-    nlp.add_pipe(nlp.create_pipe('sentencizer'))
-    matcher = load_matcher(nlp, pattern_path)
-    # CPNET_VOCAB = load_cpnet_vocab(cpnet_vocab_path) #for hard ground...
-    print('-- load time pair: ', time.time()- start)
     blacklist = set(["-PRON-", "actually", "likely", "possibly", "want",
                  "make", "my", "someone", "sometimes_people", "sometimes", "would", "want_to",
                  "one", "something", "sometimes", "everybody", "somebody", "could", "could_be",
@@ -140,7 +138,7 @@ def _pairConcepts(data_list):
             # mentioned_concepts.update(exact_match)
 
         if len(mentioned_concepts) == 0:
-            mentioned_concepts = hard_ground(nlp, _round_t, cpnet_vocab_path, all_concepts)
+            mentioned_concepts = hard_ground(nlp, _round_t, CPNET_VOCAB, all_concepts)
                         
         
         mentioned_concepts = sorted(list(mentioned_concepts))
@@ -149,7 +147,7 @@ def _pairConcepts(data_list):
         paired_concepts.append(mentioned_concepts)
         # print(paired_concepts)
 
-    paired_concepts = prune(paired_concepts, cpnet_vocab_path)
+    paired_concepts = prune(paired_concepts, CPNET_VOCAB)
     # print(paired_concepts)
 
     # if concatenate
@@ -170,7 +168,7 @@ def _pairConcepts(data_list):
 
 
 
-def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat=True, num_processes=1, debug=False):
+def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat=True, debug=False):
     """
     Pair the entities present in the dialog/image with the
     entities found in ConceptNet.
@@ -195,7 +193,10 @@ def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat
     debug: bool
         Use only five examples if True.
     """
-    
+    nlp = spacy.load('en_core_web_sm', disable=['ner', 'parser', 'textcat'])
+    nlp.add_pipe(nlp.create_pipe('sentencizer'))
+    matcher = load_matcher(nlp, pattern_path)
+    CPNET_VOCAB = load_cpnet_vocab(cpnet_vocab_path) #for hard ground...
     global nltk_stopwords
     nltk.download('stopwords', quiet=True)
     nltk_stopwords = nltk.corpus.stopwords.words('english')
@@ -206,15 +207,15 @@ def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat
     # if debug and len(data) > 2:
     #     print("Debug with big file.")
     #     data = {k: data[k] for k in list(data.keys())[:2]}
-    
+    start = time.time()
     res = {}
     # # Multiprocessing
-    data_list = [(k,v,cpnet_vocab_path, pattern_path, concat) for k,v in data.items()]
+    data_list = [(k, v, matcher, nlp , CPNET_VOCAB, concat) for k,v in data.items()]
     with Pool() as p:
-        res = {k:v for (k,v) in tqdm(p.imap(_pairConcepts, data_list), total = len(data), desc='Pairing concepts...')}
+        res = {k:v for (k,v) in tqdm(p.imap(_pairConcepts, data_list,50), total = len(data), desc='Pairing concepts...')}
         
     
     with open(output_path, 'w', encoding='utf-8') as fout:
         fout.write(json.dumps(res))
-
-    print(f'grounded concepts saved to {output_path}.\n')
+    print("Only pairing in ", time.time() -start , ' seconds.')
+    print(f'Grounded concepts saved to {output_path}.\n')

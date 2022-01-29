@@ -17,13 +17,13 @@ from multiprocessing import Pool
 from conceptnet_preprocessing.conceptnet import extract_english, construct_graph
 from conceptnet_preprocessing.grounding import create_matcher_patterns
 from conceptnet_preprocessing.loaders import load_matcher
+from conceptnet_preprocessing.tokenizing import tokenizeDatasetFile
 from conceptnet_preprocessing.pair_concepts import pairConcepts
 from conceptnet_preprocessing.find_paths import findPaths
 from conceptnet_preprocessing.score_paths import scorePaths
 from conceptnet_preprocessing.prune_paths import prunePaths
 from conceptnet_preprocessing.generate_adj import generateAdj
 
-sample = 5 # delete 
 
 EOS_TOK = "</S>"
 UNK_TOK = '<UNK>'
@@ -197,60 +197,6 @@ def load_vectors_from_npy_with_vocab(emb_npy_path, emb_vocab_path, vocab, verbos
         return vectors
     np.save(save_path, vectors)
 
-def tokenize_sentence_spacy(nlp, sent):
-    tokens = [tok.text.lower() for tok in nlp(sent)]
-    return tokens
-
-def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
-    """
-    Tokenize the dialogs and create json files with key the image_id
-    and values the dialogs.
-
-    Parameters
-    ----------
-    dialog_path: str
-        Path to the dataset's dialogs file.
-
-    output_path: str
-        Path to the resulted JSON file.
-        Format: 
-            keys: image_id
-            values: dialog
-    
-    concat: bool
-        If True the history will contain concatenated QA pairs from 
-        previous rounds.
-    """
-
-    print(f'Tokenizing {dialog_path} file.')
-    nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
-
-    tokens = {}
-    
-    with open(dialog_path, 'r', encoding='utf-8') as fin:
-        data = json.load(fin)
-        
-        dialogs = data['data']['dialogs']
-        if debug:
-            dialogs = dialogs[:sample]
-        answers = data['data']['answers']
-        questions = data['data']['questions']
-    
-
-    for dialog in tqdm(dialogs, total=len(dialogs), desc='tokenizing'):
-
-        history = [tokenize_sentence_spacy(nlp, dialog['caption']) + tokenize_sentence_spacy(nlp, questions[dialog['dialog'][0]['question']])] \
-            + [tokenize_sentence_spacy(nlp, questions[dialog['dialog'][idx+1]['question']]) \
-            + (tokenize_sentence_spacy(nlp, answers[_round['answer']]) if 'answer' in _round.keys() else []) \
-            for idx,_round in enumerate(dialog['dialog'][:-1])]
-
-        tokens[dialog['image_id']] = history
-        
-    with open(output_path, 'w', encoding='utf-8') as fout:
-        fout.write(json.dumps(tokens))
-
-
-
 
 
 def main():
@@ -329,9 +275,9 @@ def main():
     # Preprocess dataset files.
     # ==================================================================================
     # Tokenize and create files with keys the image_id
-    if not (files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear) or True:
+    if (not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear) or True:
         for split in splits:
-            tokenize_dataset_file(
+            tokenizeDatasetFile(
                     dataset_paths[split], 
                     dataset_tokenized_paths[split], 
                     debug=args.debug)

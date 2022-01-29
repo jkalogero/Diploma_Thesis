@@ -118,7 +118,7 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path, output_path):
 
 
     with Pool() as p:
-        res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list), total=len(grounded_concepts), desc='Generating adj matrices..')}
+        res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,50), total=len(grounded_concepts), desc='Generating adj matrices..')}
     
     # print(res)
     with open(output_path, 'wb') as fout:
