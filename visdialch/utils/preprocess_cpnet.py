@@ -40,16 +40,17 @@ WORKING_DIR = os.getcwd()
 DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
-splits = ['train', 'val', 'test']
+# splits = ['train', 'val', 'test']
+splits = ['train']
 
 dataset_paths = {
-    'train': DATA_DIR + 'visdial_1.0_train.json',
+    'train': DATA_DIR + 'subset_train_part_1.json',
     'val': DATA_DIR + 'visdial_1.0_val.json',
     'test': DATA_DIR + 'visdial_1.0_test.json'
 }
 
 dataset_tokenized_paths = {
-    'train': DATA_DIR + 'visdial_1.0_train_tokenized.json',
+    'train': DATA_DIR + 'visdial_1.0_train_tokenized_part_1.json',
     'val': DATA_DIR + 'visdial_1.0_val_tokenized.json',
     'test': DATA_DIR + 'visdial_1.0_test_tokenized.json'
 }
@@ -74,7 +75,7 @@ transe_ent = DATA_DIR + 'transe/glove.transe.sgd.ent.npy'
 transe_rel = DATA_DIR + 'transe/glove.transe.sgd.rel.npy'
 
 grounded = {
-    'train': DATA_DIR + 'train_grounded.json',
+    'train': DATA_DIR + 'train_grounded_part_1.json',
     'val': DATA_DIR + 'val_grounded.json',
     'test': DATA_DIR + 'test_grounded.json'
 }
@@ -98,7 +99,7 @@ pruned_concepts_paths = {
 }
 
 sub_graphs_adj = {
-    'train': DATA_DIR + 'adj_train_paths.pk',
+    'train': DATA_DIR + 'adj_train_paths_part_1.pk',
     'val': DATA_DIR + 'adj_val_paths.pk',
     'test': DATA_DIR + 'adj_test_paths.pk'
 }
@@ -223,7 +224,6 @@ def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
 
     print(f'Tokenizing {dialog_path} file.')
     nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
-    cnt = sum(1 for _ in open(dialog_path, 'r'))
 
     tokens = {}
     
@@ -237,7 +237,7 @@ def tokenize_dataset_file(dialog_path, output_path, concat=False, debug=False):
         questions = data['data']['questions']
     
 
-    for dialog in tqdm(dialogs, total=cnt, desc='tokenizing'):
+    for dialog in tqdm(dialogs, total=len(dialogs), desc='tokenizing'):
 
         history = [tokenize_sentence_spacy(nlp, dialog['caption']) + tokenize_sentence_spacy(nlp, questions[dialog['dialog'][0]['question']])] \
             + [tokenize_sentence_spacy(nlp, questions[dialog['dialog'][idx+1]['question']]) \
@@ -350,7 +350,7 @@ def main():
 
     
 
-    if not files_exist([concepts_paths[split] for split in splits]) or args.clear:
+    if (not files_exist([concepts_paths[split] for split in splits]) or args.clear) and False:
         start_time = time.time()
         for split in splits:
             findPaths(
@@ -361,7 +361,7 @@ def main():
         print("--- Completed path exploring in %s seconds. ---" % (time.time() - start_time))
     
 
-    if not files_exist([scored_paths[split] for split in splits]) or args.clear:
+    if not (files_exist([scored_paths[split] for split in splits]) or args.clear) and False:
         start_time = time.time()
         for split in splits:
             scorePaths(
@@ -373,7 +373,7 @@ def main():
                 )
         print("--- Completed path scoring in %s seconds. ---" % (time.time() - start_time))
     
-    if not files_exist([pruned_concepts_paths[split] for split in splits]) or args.clear:
+    if not (files_exist([pruned_concepts_paths[split] for split in splits]) or args.clear) and False:
         start_time = time.time()
         for split in splits:
             prunePaths(

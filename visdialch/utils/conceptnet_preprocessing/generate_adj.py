@@ -1,3 +1,4 @@
+from urllib.parse import scheme_chars
 import networkx as nx
 from .conceptnet import merged_relations
 import json
@@ -31,20 +32,29 @@ def load_cpnet(cpnet_graph_path):
 
 
 def concepts2adj(node_ids):
+    """
+    Compute the adj matrix given a set of nodes.
+    The adj matrix will have shape: RxNxN
+    """
     global id2relation
-    cids = np.array(node_ids, dtype=np.int32)
-    n_rel = len(id2relation)
-    n_node = cids.shape[0]
-    adj = np.zeros((n_rel, n_node, n_node), dtype=np.uint8)
-    for s in range(n_node):
-        for t in range(n_node):
+    cids = np.array(node_ids, dtype=np.int32) #list of nodes
+    n_rel = len(id2relation) #number of relations
+    n_nodes = cids.shape[0] #number of nodes
+    print("SCHEMA GRAPH HAS ", n_nodes, " NODES.")
+    # initialize the adjacency matrix
+    adj = np.zeros((n_rel, n_nodes, n_nodes), dtype=np.uint8)
+    # for each pair of nodes
+    for s in range(n_nodes):
+        for t in range(n_nodes):
             s_c, t_c = cids[s], cids[t]
-            if cpnet.has_edge(s_c, t_c):
+            if cpnet.has_edge(s_c, t_c): # if edge exists
+                # cpnet[s_c][t_c] is a dict with edge attributes
                 for e_attr in cpnet[s_c][t_c].values():
                     if e_attr['rel'] >= 0 and e_attr['rel'] < n_rel:
                         adj[e_attr['rel']][s][t] = 1
     # cids += 1  # note!!! index 0 is reserved for padding
-    adj = coo_matrix(adj.reshape(-1, n_node))
+    # save as a sparse coo matrix
+    adj = coo_matrix(adj.reshape(-1, n_nodes))
     return adj, cids
 
 def _generateAdj(data_list):
@@ -55,17 +65,24 @@ def _generateAdj(data_list):
 
     res = []
     for _round in data: # for each round
-        all_concepts = set([c for c in _round])
-        extra_nodes = set()
+        all_concepts = set(_round)
+        common_neighbours = set()
+        # print("\n\nROUND CONCEPTS:") #delete
+        # for c1 in _round:#delete
+            # print(id2concept[c1])#delete
+        
+        # For each pair of the grounded concepts of current round
         for c1 in _round:
-            for c2 in _round:   #for each pair of concepts of a round
+            for c2 in _round:
                 if c1!=c2 and c1 in cpnet_simple.nodes and c2 in cpnet_simple.nodes:
-                    extra_nodes |= set(cpnet_simple[c1]) & set(cpnet_simple[c2])
+                    # cpnet_simple[c1] will get a list of the neighbours of c1
+                    # common_neighbours is the intersection of the neighbours of c1 and c2
+                    common_neighbours |= set(cpnet_simple[c1]) & set(cpnet_simple[c2])
     
-    
-        extra_nodes = extra_nodes - all_concepts
-        schema_graph = sorted(all_concepts) + sorted(extra_nodes)
-        arange = np.arange(len(schema_graph))
+        # Remove from the common_neighbours the grounded concepts
+        common_neighbours = common_neighbours - all_concepts
+        # Schema graph is just a set of all the nodes
+        schema_graph = sorted(all_concepts) + sorted(common_neighbours)
         adj, concepts = concepts2adj(schema_graph)
         res.append({'adj':adj, 'c':concepts})
     

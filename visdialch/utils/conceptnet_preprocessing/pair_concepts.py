@@ -41,6 +41,26 @@ def prune(data, cpnet_vocab_path):
         pruned_data.append(prune)
     return pruned_data
 
+def hard_ground(nlp, sent, cpnet_vocab, all_concepts):
+    sent = sent.lower()
+    doc = nlp(sent)
+    res = set()
+    for t in doc:
+        if t.lemma_ in cpnet_vocab and t.lemma_ not in all_concepts:
+            res.add(t.lemma_)
+    sent = " ".join([t.text for t in doc])
+    if sent in cpnet_vocab:
+        res.add(sent)
+    
+    if len(res) == 0:
+        for t in doc:
+            if t.text in cpnet_vocab and t.text not in all_concepts:
+                res.add(t.text)
+    try:
+        assert len(res) > 0
+    except Exception:
+        print(f"For {sent}, concept not found in hard grounding.")
+    return res
 
 def _pairConcepts(data_list):
 
@@ -59,25 +79,32 @@ def _pairConcepts(data_list):
                  ])
     
     paired_concepts = []
+    all_concepts = set()
     for i, _round in enumerate(dialog):   
+        # print('round ', i)
         _round_t = ' '.join(_round)
 
         doc = nlp(_round_t)
-        matches = matcher(doc)
+        matches = matcher(doc) #find mathces in cpnet of the tokens in doc
+        # print("matches = ", matches)
         mentioned_concepts = set()
-        span_to_concepts = {}
+        span_to_concepts = {} # dict that matches each token of the doc to a nubmer or concepts in cpnet
 
-        for match_id, start, end in matches:
-            span = doc[start:end].text  # the matched span
-            original_concept = nlp.vocab.strings[match_id]
+        for match_id, start, end in matches: #for each match
+            span = doc[start:end].text  # the matched span (the token in doc whose match we are examining)
+            original_concept = nlp.vocab.strings[match_id] # get the string representation of the match
             original_concept_set = set()
             original_concept_set.add(original_concept)
 
             if len(original_concept.split("_")) == 1:
                 # tag = doc[start].tag_
                 # if tag in ['VBN', 'VBG']:
-
+                # print('BEFORE LEMMATIZING', original_concept_set)
                 original_concept_set.update(lemmatize(nlp, nlp.vocab.strings[match_id]))
+                # print('AFTER LEMMATIZING', original_concept_set)
+
+            # print("IN MATCHES span: ", span)
+            # print("IN MATCHES concept_sorted: ", original_concept_set)
 
             if span not in span_to_concepts:
                 span_to_concepts[span] = set()
@@ -86,25 +113,26 @@ def _pairConcepts(data_list):
 
         for span, concepts in span_to_concepts.items():
             concepts_sorted = list(concepts)
-            # print("span: ", span)
-            # print("concept_sorted: ", concepts_sorted)
             concepts_sorted.sort(key=len)
-
-            # mentioned_concepts.update(concepts_sorted[0:2])
-
+            
             shortest = concepts_sorted[0:3]
 
             for c in shortest:
                 if c in blacklist:
                     continue
 
-                # a set with one string like: set("like_apples")
                 lcs = lemmatize(nlp, c)
                 intersect = lcs.intersection(shortest)
-                if len(intersect) > 0:
+                # print("intersect = ", intersect)
+                if len(intersect) > 0 and list(intersect)[0] not in all_concepts:
                     mentioned_concepts.add(list(intersect)[0])
-                else:
-                    mentioned_concepts.add(c)
+                    all_concepts.add(list(intersect)[0])
+                    break
+                # elif c not in all_concepts:
+                    print('Adding: ', c)
+                #     mentioned_concepts.add(c)
+                #     all_concepts.add(c)
+                #     break
 
             # if a mention exactly matches with a concept
             # exact_match = set([concept for concept in concepts_sorted if concept.replace("_", " ").lower() == span.lower()])
@@ -112,15 +140,17 @@ def _pairConcepts(data_list):
             # mentioned_concepts.update(exact_match)
 
         if len(mentioned_concepts) == 0:
-            print("No concepts added for this round.")
-            print(f'img_id = {img_id}, round = {_round}') 
-            
+            mentioned_concepts = hard_ground(nlp, _round_t, cpnet_vocab_path, all_concepts)
+                        
         
         mentioned_concepts = sorted(list(mentioned_concepts))
+        # print("mentioned_concepts = ", mentioned_concepts,'\n\n')
         # res[img_id].append(mentioned_concepts)
         paired_concepts.append(mentioned_concepts)
+        # print(paired_concepts)
 
     paired_concepts = prune(paired_concepts, cpnet_vocab_path)
+    # print(paired_concepts)
 
     # if concatenate
     if concat:
