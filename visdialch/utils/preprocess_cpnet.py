@@ -329,7 +329,7 @@ def main():
     # Preprocess dataset files.
     # ==================================================================================
     # Tokenize and create files with keys the image_id
-    if not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear:
+    if not (files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear) or True:
         for split in splits:
             tokenize_dataset_file(
                     dataset_paths[split], 
@@ -337,7 +337,7 @@ def main():
                     debug=args.debug)
 
     # Pair the dataset entities with the ConceptNet entities
-    if not files_exist([grounded[split] for split in splits]) or args.clear:
+    if (not files_exist([grounded[split] for split in splits]) or args.clear) or True:
         start_time = time.time()
         for split in splits:
             pairConcepts(
@@ -385,7 +385,7 @@ def main():
                 )
         print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
-    if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear:
+    if (not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear) or True:
         start_time = time.time()
         for split in splits:
             generateAdj(

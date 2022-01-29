@@ -40,7 +40,6 @@ def concepts2adj(node_ids):
     cids = np.array(node_ids, dtype=np.int32) #list of nodes
     n_rel = len(id2relation) #number of relations
     n_nodes = cids.shape[0] #number of nodes
-    print("SCHEMA GRAPH HAS ", n_nodes, " NODES.")
     # initialize the adjacency matrix
     adj = np.zeros((n_rel, n_nodes, n_nodes), dtype=np.uint8)
     # for each pair of nodes
