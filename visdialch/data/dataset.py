@@ -126,6 +126,8 @@ class VisDialDataset(Dataset):
         answers_out, _ = self._pad_sequences(
             [dialog_round["answer"][1:] for dialog_round in dialog]
         )
+        # print("answers_in = ", answers_in)
+        # print("answers_out = ", answers_out)
         # alt_history, alt_history_lengths = self._get_history_alt(
         #     caption,
         #     [dialog_round["question"] for dialog_round in dialog],
@@ -135,16 +137,16 @@ class VisDialDataset(Dataset):
         # print("HISTORY ALT[0][1][0] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][0]])
         # print("HISTORY ALT[0][1][1] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][1]])
 
-        answer_options = []
-        answer_option_lengths = []
-        for dialog_round in dialog:
-            options, option_lengths = self._pad_sequences(dialog_round["answer_options"])
-            answer_options.append(options)
-            answer_option_lengths.append(option_lengths)
-        answer_options = torch.stack(answer_options, 0)
+        # answer_options = []
+        # answer_option_lengths = []
+        # for dialog_round in dialog:
+        #     options, option_lengths = self._pad_sequences(dialog_round["answer_options"])
+        #     answer_options.append(options)
+        #     answer_option_lengths.append(option_lengths)
+        # answer_options = torch.stack(answer_options, 0)
 
-        if "test" not in self.split:
-            answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
+        # if "test" not in self.split:
+        #     answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
         
 
 

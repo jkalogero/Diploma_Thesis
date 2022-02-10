@@ -65,6 +65,7 @@ parser.add_argument(
     "--validate", action="store_true",
     help="Whether to validate on val split after every epoch."
 )
+parser.set_defaults(validate=True)
 parser.add_argument(
     "--in-memory", action="store_true",
     help="Load the whole dataset and pre-extracted image features in memory. Use only in "
@@ -120,7 +121,9 @@ train_dataset = VisDialDataset(
     args.train_json, 
     overfit=args.overfit, 
     in_memory=args.in_memory,
-    num_workers=args.cpu_workers
+    num_workers=args.cpu_workers,
+    return_options=True if config["model"]["decoder"] == "disc" else False,
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
 )
 train_dataloader = DataLoader(
     train_dataset, 
@@ -135,7 +138,9 @@ val_dataset = VisDialDataset(
     dense_annotations_jsonpath=args.val_dense_json, 
     overfit=args.overfit,
     in_memory=args.in_memory,
-    num_workers=args.cpu_workers
+    num_workers=args.cpu_workers,
+    return_options=True,
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
 )
 val_dataloader = DataLoader(
     val_dataset, 
@@ -304,7 +309,12 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
        
         optimizer.zero_grad()
         output = model(batch)
-        batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
+        target = (
+            batch["ans_ind"]
+            if config["model"]["decoder"] == "disc"
+            else batch["ans_out"]
+        )
+        batch_loss = criterion(output.view(-1, output.size(-1)), target.view(-1))
         batch_loss.backward()
         optimizer.step()
 
