@@ -11,7 +11,10 @@ from bisect import bisect
 
 from numpy import random
 import numpy as np
+print('importing dataset')
 from visdialch.data.dataset import VisDialDataset
+print('imported dataset')
+
 from torch.utils.data import DataLoader
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
@@ -40,8 +43,8 @@ parser.add_argument(
     help="Path to json file containing VisDial v1.0 validation dense ground truth annotations."
 )
 parser.add_argument(
-    "--captions-train-json", default="data/train2018.json",
-    help="Path to json file containing VisDial v1.0 training captions data."
+    "--adj-train-h5", default="data/chunked_adj_train_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(
     "--captions-val-json", default="data/val2018.json",
@@ -117,7 +120,8 @@ for arg in vars(args):
 
 train_dataset = VisDialDataset(
     config["dataset"], 
-    args.train_json, 
+    args.train_json,
+    args.adj_train_h5,
     overfit=args.overfit, 
     in_memory=args.in_memory,
     num_workers=args.cpu_workers
@@ -131,7 +135,8 @@ train_dataloader = DataLoader(
 
 val_dataset = VisDialDataset(
     config["dataset"], 
-    args.val_json, 
+    args.val_json,
+    args.adj_train_h5,
     dense_annotations_jsonpath=args.val_dense_json, 
     overfit=args.overfit,
     in_memory=args.in_memory,
@@ -143,7 +148,7 @@ val_dataloader = DataLoader(
     num_workers=args.cpu_workers
 )
 
-
+print('GLOVE')
 # Read GloVe word embedding data
 glove = {}
 with open(config["dataset"]["glovepath"], "r") as glove_file:
@@ -175,7 +180,7 @@ for i in range(len(glovevocabulary)):
 glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
-
+print('ELMO')
 # Read ELMo word embedding data
 with open(config["dataset"]["elmopath"], "r") as elmo_file:
     elmo = json.load(elmo_file)

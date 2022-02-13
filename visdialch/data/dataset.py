@@ -5,9 +5,8 @@ from torch.nn.functional import normalize
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
-from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader
+from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader, AdjacencyMatricesReader
 from visdialch.data.vocabulary import Vocabulary
-
 
 class VisDialDataset(Dataset):
     """
@@ -18,6 +17,7 @@ class VisDialDataset(Dataset):
     def __init__(self,
                  config: Dict[str, Any],
                  dialogs_jsonpath: str,
+                 dialogs_adj: str,
                  dense_annotations_jsonpath: Optional[str] = None,
                  overfit: bool = False,
                  in_memory: bool = False,
@@ -57,6 +57,8 @@ class VisDialDataset(Dataset):
         self.image_ids = list(self.dialogs_reader.dialogs.keys())
         if overfit:
             self.image_ids = self.image_ids[:5]
+        
+        self.adj_reader = AdjacencyMatricesReader(dialogs_adj)
 
 
 
@@ -146,8 +148,8 @@ class VisDialDataset(Dataset):
         if "test" not in self.split:
             answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
         
-
-
+        # external knowledge
+        col, row, data, shape, concepts = self.adj_reader[image_id]
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
         # questions, history, etc. are converted to LongTensors, for nn.Embedding input.
         item = {}

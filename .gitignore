@@ -6,8 +6,8 @@ __pycache__/
 testing_geometric.py
 *notes
 *_file
-log
-error.log
+*log
+*err
 data
 prep_err
 prep_log
@@ -16,3 +16,4 @@ readh5.py
 run_prep.sh
 visdialch/utils/conceptnet_preprocessing/combine_adj_subsets.py
 visdialch/utils/sav2h5.py
+debugging*/

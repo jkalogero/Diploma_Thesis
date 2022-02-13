@@ -2,7 +2,7 @@ import os
 import argparse
 from multiprocessing import cpu_count
 import getpass
-from tkinter import dialog
+# from tkinter import dialog
 from typing import List
 import numpy as np
 from tqdm import tqdm
@@ -44,13 +44,13 @@ DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 splits = ['train']
 
 dataset_paths = {
-    'train': DATA_DIR + 'subset_train_part_1.json',
+    'train': DATA_DIR + 'visdial_1.0_train.json',
     'val': DATA_DIR + 'visdial_1.0_val.json',
     'test': DATA_DIR + 'visdial_1.0_test.json'
 }
 
 dataset_tokenized_paths = {
-    'train': DATA_DIR + 'visdial_1.0_train_tokenized_part_1.json',
+    'train': DATA_DIR + 'visdial_1.0_train_tokenized.json',
     'val': DATA_DIR + 'visdial_1.0_val_tokenized.json',
     'test': DATA_DIR + 'visdial_1.0_test_tokenized.json'
 }
@@ -75,7 +75,7 @@ transe_ent = DATA_DIR + 'transe/glove.transe.sgd.ent.npy'
 transe_rel = DATA_DIR + 'transe/glove.transe.sgd.rel.npy'
 
 grounded = {
-    'train': DATA_DIR + 'train_grounded_part_1.json',
+    'train': DATA_DIR + 'train_grounded.json',
     'val': DATA_DIR + 'val_grounded.json',
     'test': DATA_DIR + 'test_grounded.json'
 }
@@ -99,7 +99,7 @@ pruned_concepts_paths = {
 }
 
 sub_graphs_adj = {
-    'train': DATA_DIR + 'adj_train_paths_part_1.pk',
+    'train': DATA_DIR + 'adj_train_paths.pk',
     'val': DATA_DIR + 'adj_val_paths.pk',
     'test': DATA_DIR + 'adj_test_paths.pk'
 }
@@ -275,7 +275,7 @@ def main():
     # Preprocess dataset files.
     # ==================================================================================
     # Tokenize and create files with keys the image_id
-    if (not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear) or True:
+    if not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear:
         for split in splits:
             tokenizeDatasetFile(
                     dataset_paths[split], 
@@ -283,7 +283,7 @@ def main():
                     debug=args.debug)
 
     # Pair the dataset entities with the ConceptNet entities
-    if (not files_exist([grounded[split] for split in splits]) or args.clear) or True:
+    if not files_exist([grounded[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
             pairConcepts(
@@ -331,7 +331,7 @@ def main():
                 )
         print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
-    if (not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear) or True:
+    if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear:
         start_time = time.time()
         for split in splits:
             generateAdj(

@@ -193,6 +193,7 @@ def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat
     debug: bool
         Use only five examples if True.
     """
+    print('Pairing concepts from file ', input_path,'.')
     nlp = spacy.load('en_core_web_sm', disable=['ner', 'parser', 'textcat'])
     nlp.add_pipe(nlp.create_pipe('sentencizer'))
     matcher = load_matcher(nlp, pattern_path)
@@ -212,7 +213,7 @@ def pairConcepts(input_path, cpnet_vocab_path, pattern_path, output_path, concat
     # # Multiprocessing
     data_list = [(k, v, matcher, nlp , CPNET_VOCAB, concat) for k,v in data.items()]
     with Pool() as p:
-        res = {k:v for (k,v) in tqdm(p.imap(_pairConcepts, data_list,50), total = len(data), desc='Pairing concepts...')}
+        res = {k:v for (k,v) in tqdm(p.imap(_pairConcepts, data_list,80), total = len(data), desc='Pairing concepts...')}
         
     
     with open(output_path, 'w', encoding='utf-8') as fout:
