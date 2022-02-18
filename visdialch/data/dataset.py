@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
-
+from tqdm import tqdm
+import numpy as np
 import torch
 from torch.nn.functional import normalize
 from torch.nn.utils.rnn import pad_sequence
@@ -23,7 +24,8 @@ class VisDialDataset(Dataset):
                  in_memory: bool = False,
                  num_workers: int = 1,
                  return_options: bool = True,
-                 add_boundary_toks: bool = False):
+                 add_boundary_toks: bool = False,
+                 sample_graph: bool = True):
 
         super().__init__()
         self.config = config
@@ -59,7 +61,6 @@ class VisDialDataset(Dataset):
             self.image_ids = self.image_ids[:5]
         
         self.adj_reader = AdjacencyMatricesReader(dialogs_adj)
-
 
 
     @property
@@ -150,6 +151,8 @@ class VisDialDataset(Dataset):
         
         # external knowledge
         col, row, data, shape, concepts = self.adj_reader[image_id]
+
+
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
         # questions, history, etc. are converted to LongTensors, for nn.Embedding input.
         item = {}
@@ -165,6 +168,10 @@ class VisDialDataset(Dataset):
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
+        item['concept_ids'], item['adj_lengths'], item['adj_data'], item['n_rel'] = self.load_adj_data(col, row, data, shape, concepts)
+        # item['concept_ids'], item['adj_lengths'], _, item['n_rel'] = self.load_adj_data(col, row, data, shape, concepts)
+
+        # print("len(item['adj_data')] = ", len(item['adj_data']))
         
         if self.return_options:
             if self.add_boundary_toks:
@@ -404,11 +411,74 @@ class VisDialDataset(Dataset):
       
         return sequences,caption_len
 
-    def _get_relations(self, num_of_nodes=36, edge_feature_size = 2048):
+    def load_adj_data(self, col, row, data, shape, concepts, max_node_num=50, select_random_nodes=True):
         """
-        For now it generates a random matrix of the shape 
-        [num_of_nodes, num_of_nodes, edge_feature_size]
+        data = (col, row, data, shape, concepts)
+        col, row, data: np.arrays of 10 lists each for each round
+        shape: shape of coo matrix
+        concepts: list of concepts
         """
-        edge_features = torch.rand((num_of_nodes, num_of_nodes, edge_feature_size), dtype=torch.float)
+        # with open(adj_pk_path, 'rb') as fin:
+        #     adj_concept_pairs = pickle.load(fin)
+        n_rounds = len(col)
+        adj_data = []
+        # 
+        adj_lengths = torch.zeros((n_rounds,), dtype=torch.long)
+        # max_node_num = len(concepts[-1]) // 2 # for each round keep only half of the nodes
+        concept_ids = torch.zeros((n_rounds, max_node_num), dtype=torch.long)
+        # node_type_ids = torch.full((n_rounds, max_node_num), 2, dtype=torch.long)
+
+        # padding
+        # n_edges = 2*len(_col[-1])
+        # i, j = [np.zeros(n_edges) for _ in range(n_rounds)]
+
+        adj_lengths_ori = adj_lengths.clone()   # get initial adj len
+        n_relations = []
+        for _round, (_col, _row, _data, _shape, _concepts) in tqdm(enumerate(zip(col, row, data, shape, concepts)), total=n_rounds, desc='Loading adj matrices'):
+            num_concept = min(len(_concepts), max_node_num)
+            adj_lengths_ori[_round] = len(_concepts)
+
+            concept_ids[_round, :num_concept] = torch.tensor(\
+                np.random.choice(_concepts,num_concept, replace=False) if select_random_nodes\
+                 else _concepts[:num_concept])
+
+            adj_lengths[_round] = num_concept
+            # node_type_ids[_round, :num_concept][torch.tensor(qm, dtype=torch.uint8)[:num_concept]] = 0
+            # node_type_ids[_round, :num_concept][torch.tensor(am, dtype=torch.uint8)[:num_concept]] = 1
+            _row = np.array(_row)
+            _col = np.array(_col)
+            # _shape is the shape of coo matrix: (RxN, N)
+            n_node = _shape[1] #number of nodes
+            # half of the relations, because it is undirected
+            half_n_rel = _shape[0] // n_node
+            # get the coordinates
+            i = _row // n_node
+            # i[0][:len(row)] = _row // n_node
+            j = _row % n_node
+            # j[0][:len(row)] = _row % n_node
+            mask = (j < max_node_num) & (_col < max_node_num)
+            i, j, _col = i[mask], j[mask], _col[mask]
+            i = np.concatenate((i, i + half_n_rel), 0) # add inverse relations
+            j = np.concatenate((j, _col), 0)
+            _col = np.concatenate((_col, j), 0)
+            adj_data.append((i[:10], j[:10], _col[:10]))  # i, j, k are the coordinates of adj's non-zero entries
+            n_relations.append(2*half_n_rel+1)
+
+
+
+        print('| ori_adj_len: {:.2f} | adj_len: {:.2f} |'.format(adj_lengths_ori.float().mean().item(), adj_lengths.float().mean().item()) +
+            ' prune_rate: {:.2f} |'.format((adj_lengths_ori > adj_lengths).float().mean().item()))
+        # print("BEFORE concept_ids.shape = ", concept_ids.shape)
+        # print("BEFORE adj_lengths.shape = ", adj_lengths.shape)
+        # concept_ids, adj_lengths = [x.view(-1, n_rounds, *x.size()[1:]) for x in (concept_ids, adj_lengths)]
+        print("concept_ids.shape = ", concept_ids.shape)
+        print("adj_lengths.shape = ", adj_lengths.shape)
+        print("BEFORE adj_data.shape = ", len(adj_data))
+        print("BEFORE adj_data[0].shape = ", len(adj_data[0]))
+        print("BEFORE adj_data[0][0].shape = ", len(adj_data[0][0]))
+        print("BEFORE adj_data[0][1].shape = ", len(adj_data[0][1]))
+        print("BEFORE adj_data[0][2].shape = ", len(adj_data[0][2]))
         
-        return edge_features
+        # adj_data = torch.tensor(list(map(list, zip(*(iter(adj_data),) * n_rounds))), dtype=torch.float)
+        rel = torch.tensor(n_relations)
+        return concept_ids, adj_lengths, adj_data, rel

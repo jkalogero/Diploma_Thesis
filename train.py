@@ -11,9 +11,7 @@ from bisect import bisect
 
 from numpy import random
 import numpy as np
-print('importing dataset')
 from visdialch.data.dataset import VisDialDataset
-print('imported dataset')
 
 from torch.utils.data import DataLoader
 from visdialch.encoders import Encoder
@@ -203,9 +201,17 @@ for i in range(len(glovevocabulary)):
         elmo_list.append(randArray[0])
 elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
 
+print("Numberbatch")
+EMB_PATHS = [config["dataset"]["numberbatch"], config["dataset"]["transe"]]
+
+cp_emb = [np.load(path) for path in EMB_PATHS]
+cp_emb = torch.tensor(np.concatenate(cp_emb, 1), dtype=torch.float)
+
+concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
+print('| num_concepts: {} |'.format(concept_num))
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, cp_emb, concept_num, concept_dim)
 decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
@@ -214,13 +220,13 @@ print("Decoder: {}".format(config["model"]["decoder"]))
 decoder.glove_embed = encoder.glove_embed
 decoder.elmo_embed = encoder.elmo_embed
 decoder.embed_change = encoder.embed_change
-
+print('Shared word embeddings')
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
 if -1 not in args.gpu_ids:
     model = nn.DataParallel(model, args.gpu_ids)
 
-
+print('Defined Model')
 # Loss function.
 if config["model"]["decoder"] == "disc":
     criterion = nn.CrossEntropyLoss()
@@ -264,7 +270,7 @@ scheduler2 = lr_scheduler.CosineAnnealingLR(optimizer, int(T), eta_min=config["s
 # ================================================================================================
 #   SETUP BEFORE TRAINING LOOP
 # ================================================================================================
-
+print('SETUP BEFORE TRAINING LOOP')
 summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 checkpoint_manager = CheckpointManager(model, optimizer, args.save_dirpath, config=config)
 sparse_metrics = SparseGTMetrics()
@@ -305,8 +311,8 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     print(f"\nTraining for epoch {epoch}:")
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
-            batch[key] = batch[key].to(device)
-       
+            if key != 'adj_data':
+                batch[key] = batch[key].to(device)
         optimizer.zero_grad()
         output = model(batch)
         batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
