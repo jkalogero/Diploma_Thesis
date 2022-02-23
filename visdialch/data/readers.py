@@ -374,7 +374,6 @@ class AdjacencyMatricesReader(object):
     
     def __getitem__(self, image_id: int):
         col, row, data, shape, concepts = [], [], [], [], []
-        d = []
         with h5py.File(self.adj_path, "r") as f:
             for _round in f[str(image_id)].keys():
                 # d.append(list(f[str(image_id)][_round]))

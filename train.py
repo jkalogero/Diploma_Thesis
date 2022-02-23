@@ -220,13 +220,13 @@ print("Decoder: {}".format(config["model"]["decoder"]))
 decoder.glove_embed = encoder.glove_embed
 decoder.elmo_embed = encoder.elmo_embed
 decoder.embed_change = encoder.embed_change
-print('Shared word embeddings')
+
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
 if -1 not in args.gpu_ids:
     model = nn.DataParallel(model, args.gpu_ids)
 
-print('Defined Model')
+
 # Loss function.
 if config["model"]["decoder"] == "disc":
     criterion = nn.CrossEntropyLoss()
@@ -270,7 +270,7 @@ scheduler2 = lr_scheduler.CosineAnnealingLR(optimizer, int(T), eta_min=config["s
 # ================================================================================================
 #   SETUP BEFORE TRAINING LOOP
 # ================================================================================================
-print('SETUP BEFORE TRAINING LOOP')
+
 summary_writer = SummaryWriter(log_dir=args.save_dirpath)
 checkpoint_manager = CheckpointManager(model, optimizer, args.save_dirpath, config=config)
 sparse_metrics = SparseGTMetrics()

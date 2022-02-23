@@ -28,6 +28,9 @@ model:
   lstm_hidden_size: 512
   lstm_num_layers: 2
   dropout: 0.5
+  # ext_dropout: 0.5
+  numberbatch_dim: 300
+  transe_dim: 100
 
   glove_embedding_size: 300
   elmo_embedding_size: 1024

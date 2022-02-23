@@ -73,6 +73,7 @@ class VisDialDataset(Dataset):
     def __getitem__(self, index):
         # Get image_id, which serves as a primary key for current instance.
         image_id = self.image_ids[index]
+        print('image_id = ', image_id)
 
         # Get image features for this image_id using hdf reader.
         image_features,image_relation = self.hdf_reader[image_id]
@@ -168,11 +169,13 @@ class VisDialDataset(Dataset):
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
-        item['concept_ids'], item['adj_lengths'], item['adj_data'], item['n_rel'] = self.load_adj_data(col, row, data, shape, concepts)
+        item['concept_ids'], item['adj_lengths'], _, item['n_rel'], item['adj_data'] = self.load_adj_data(col, row, data, shape, concepts)
         # item['concept_ids'], item['adj_lengths'], _, item['n_rel'] = self.load_adj_data(col, row, data, shape, concepts)
 
-        # print("len(item['adj_data')] = ", len(item['adj_data']))
-        
+        print("len(item['adj_data')] = ", len(item['adj_data']))
+        print("len(item['adj_data')[0][0]] = ", len(item['adj_data'][0][0]))        
+        print("len(item['adj_data')[0][1]] = ", len(item['adj_data'][0][1]))
+
         if self.return_options:
             if self.add_boundary_toks:
                 answer_options_in, answer_options_out = [], []
@@ -229,8 +232,11 @@ class VisDialDataset(Dataset):
             item["gt_relevance"] = torch.tensor(dense_annotations["gt_relevance"]).float()
             item["round_id"] = torch.tensor(dense_annotations["round_id"]).long()
 
-
-
+        print(list(item.keys()))
+        for k,v in item.items():
+            print('\n\n', k, end=' ')
+            if k not in ['img_ids', 'num_rounds'] :
+                print(' has len = ', len(v))
 
         return item
 
@@ -413,6 +419,10 @@ class VisDialDataset(Dataset):
 
     def load_adj_data(self, col, row, data, shape, concepts, max_node_num=50, select_random_nodes=True):
         """
+        Add inverse relations, pad matrices and keep max length.
+
+        Parameters:
+        ===========
         data = (col, row, data, shape, concepts)
         col, row, data: np.arrays of 10 lists each for each round
         shape: shape of coo matrix
@@ -429,15 +439,19 @@ class VisDialDataset(Dataset):
         # node_type_ids = torch.full((n_rounds, max_node_num), 2, dtype=torch.long)
 
         # padding
-        # n_edges = 2*len(_col[-1])
-        # i, j = [np.zeros(n_edges) for _ in range(n_rounds)]
+        max_edges = max_node_num * 17
+        # i, j = np.array([np.zeros(max_edges) for _ in range(n_rounds)]), np.array([np.zeros(max_edges) for _ in range(n_rounds)])
 
         adj_lengths_ori = adj_lengths.clone()   # get initial adj len
         n_relations = []
+        buffer = []
         for _round, (_col, _row, _data, _shape, _concepts) in tqdm(enumerate(zip(col, row, data, shape, concepts)), total=n_rounds, desc='Loading adj matrices'):
+            print('\t\tLEN _ROW = ', len(_row))
+            print('\t\tLEN _COL = ', len(_col))
             num_concept = min(len(_concepts), max_node_num)
             adj_lengths_ori[_round] = len(_concepts)
 
+            # select the concepts that will be kept
             concept_ids[_round, :num_concept] = torch.tensor(\
                 np.random.choice(_concepts,num_concept, replace=False) if select_random_nodes\
                  else _concepts[:num_concept])
@@ -452,17 +466,21 @@ class VisDialDataset(Dataset):
             # half of the relations, because it is undirected
             half_n_rel = _shape[0] // n_node
             # get the coordinates
-            i = _row // n_node
-            # i[0][:len(row)] = _row // n_node
-            j = _row % n_node
-            # j[0][:len(row)] = _row % n_node
+            i = _row // n_node # i: number of relation
+            # i[_round][:len(_row)] = _row // n_node
+            j = _row % n_node # j: number of node
+            # j[_round][:len(_row)] = _row % n_node
             mask = (j < max_node_num) & (_col < max_node_num)
             i, j, _col = i[mask], j[mask], _col[mask]
+            # the x+17 relation will be the inverse relation of x
             i = np.concatenate((i, i + half_n_rel), 0) # add inverse relations
             j = np.concatenate((j, _col), 0)
             _col = np.concatenate((_col, j), 0)
             adj_data.append((i[:10], j[:10], _col[:10]))  # i, j, k are the coordinates of adj's non-zero entries
             n_relations.append(2*half_n_rel+1)
+
+            f_row = i*n_node +j
+            buffer.append((f_row[:50], _col[:50]))
 
 
 
@@ -473,12 +491,13 @@ class VisDialDataset(Dataset):
         # concept_ids, adj_lengths = [x.view(-1, n_rounds, *x.size()[1:]) for x in (concept_ids, adj_lengths)]
         print("concept_ids.shape = ", concept_ids.shape)
         print("adj_lengths.shape = ", adj_lengths.shape)
-        print("BEFORE adj_data.shape = ", len(adj_data))
-        print("BEFORE adj_data[0].shape = ", len(adj_data[0]))
-        print("BEFORE adj_data[0][0].shape = ", len(adj_data[0][0]))
-        print("BEFORE adj_data[0][1].shape = ", len(adj_data[0][1]))
-        print("BEFORE adj_data[0][2].shape = ", len(adj_data[0][2]))
+        print("BEFORE buffer.shape = ", len(buffer))
+        print("BEFORE buffer[0].shape = ", len(buffer[0]))
+        print("BEFORE buffer[0][0].shape = ", len(buffer[0][0]))
+        # print("BEFORE buffer[0][0][0].shape = ", len(buffer[0][0][0]))
+        # print("BEFORE buffer[0][0][1].shape = ", len(buffer[0][0][1]))
+        print("BEFORE buffer[0][1].shape = ", len(buffer[0][1]))
         
         # adj_data = torch.tensor(list(map(list, zip(*(iter(adj_data),) * n_rounds))), dtype=torch.float)
         rel = torch.tensor(n_relations)
-        return concept_ids, adj_lengths, adj_data, rel
+        return concept_ids, adj_lengths, adj_data, rel, buffer
