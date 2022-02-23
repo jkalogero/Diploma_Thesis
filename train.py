@@ -82,6 +82,11 @@ parser.add_argument(
     help="To continue training, path to .pth file of saved checkpoint."
 )
 
+parser.add_argument(
+    "--numberbatch", action="store_true",
+    help="Use numberbatch instead of GloVe."
+)
+
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
@@ -150,6 +155,7 @@ val_dataloader = DataLoader(
 
 
 # Read GloVe word embedding data
+# if not args.numberbatch:
 glove = {}
 with open(config["dataset"]["glovepath"], "r") as glove_file:
     for line in glove_file:
@@ -203,15 +209,30 @@ for i in range(len(glovevocabulary)):
         elmo_list.append(randArray[0])
 elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
 
+if args.numberbatch:
+    # EMB_PATHS = [config["dataset"]["numberbatch"], config["dataset"]["transe"]]
+
+    # cp_emb = [np.load(config["dataset"]["numberbatch"]) for path in EMB_PATHS]
+    cp_emb = torch.tensor(np.load(config["dataset"]["numberbatch"]), dtype=torch.float)
+
+    concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
+    print('| num_concepts: {} |'.format(concept_num))
+
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
-decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+if not args.numberbatch:
+    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+    decoder.glove_embed = encoder.glove_embed
+else:
+    encoder = Encoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, concept_num, concept_dim, numberbatch=True)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, concept_num, concept_dim, numberbatch=True)
+    decoder.numberbatch_embed = encoder.numberbatch_embed
+
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Share word embedding between encoder and decoder.
-decoder.glove_embed = encoder.glove_embed
 decoder.elmo_embed = encoder.elmo_embed
 decoder.embed_change = encoder.embed_change
 

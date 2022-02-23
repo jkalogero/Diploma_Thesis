@@ -6,6 +6,7 @@ dataset:
   word_counts_json: 'data/visdial_1.0_word_counts_train.json'
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
+  numberbatch: 'data/transe/concept.nb.npy'
 
   img_norm: 1
   concat_history: false
@@ -29,6 +30,7 @@ model:
 
   glove_embedding_size: 300
   elmo_embedding_size: 1024
+  numberbatch_embedding_size: 300
 
   caption_word_size_out1: 256
   caption_lstm_numlayers_1: 2
