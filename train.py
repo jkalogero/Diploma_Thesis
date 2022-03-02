@@ -183,7 +183,9 @@ for i in range(len(glovevocabulary)):
     else:
         randArray = random.random(size=(1, 300)).tolist()
         glove_list.append(randArray[0])
-glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+if not args.numberbatch:
+    print("GLOVE TOKEN")
+    glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
 
 
 
@@ -221,13 +223,13 @@ if args.numberbatch:
 
 # Pass vocabulary to construct Embedding layer.
 if not args.numberbatch:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
-    decoder.glove_embed = encoder.glove_embed
+    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder.w_embed = encoder.w_embed
 else:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, concept_num, concept_dim, numberbatch=True)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, concept_num, concept_dim, numberbatch=True)
-    decoder.numberbatch_embed = encoder.numberbatch_embed
+    encoder = Encoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, True)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, True)
+    decoder.w_embed = encoder.w_embed
 
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
