@@ -154,38 +154,38 @@ val_dataloader = DataLoader(
 )
 
 
-# Read GloVe word embedding data
-# if not args.numberbatch:
-glove = {}
-with open(config["dataset"]["glovepath"], "r") as glove_file:
-    for line in glove_file:
-        values = line.split()
-        word = values[0]
-        vector = np.asarray(values[1:], "float32")
-        glove[word] = vector
-glovevocabulary = Vocabulary(
+dataset_vocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
-KAT = []
-for key in glove.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-glove_token = {}
-for item in KAT:
-    glove_token[item[1]] = glove[item[0]]
-
-glove_list = []
-for i in range(len(glovevocabulary)):
-    if i in glove_token.keys():
-        glove_list.append(glove_token[i])
-    else:
-        randArray = random.random(size=(1, 300)).tolist()
-        glove_list.append(randArray[0])
+# Read GloVe word embedding data
 if not args.numberbatch:
-    print("GLOVE TOKEN")
-    glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+    glove = {} # dict with keys the word and values the values from glove file.
+    with open(config["dataset"]["glovepath"], "r") as glove_file:
+        for line in glove_file:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], "float32")
+            glove[word] = vector
+    KAT = []
+    for key in glove.keys():
+        keylist = [key]
+        token = dataset_vocabulary.to_indices(keylist) # list of idxs for the given words
+        key_and_token = keylist + token
+        KAT.append(key_and_token)
+    glove_token = {} # dict with keys the idx of the word and values the embedding of the word from glove file.
+    for item in KAT:
+        glove_token[item[1]] = glove[item[0]]
+
+    glove_list = []
+    for i in range(len(dataset_vocabulary)):
+        if i in glove_token.keys():
+            glove_list.append(glove_token[i])
+        else:
+            randArray = random.random(size=(1, 300)).tolist()
+            glove_list.append(randArray[0])
+    if not args.numberbatch:
+        print("GLOVE TOKEN")
+        glove_token = torch.Tensor(glove_list).view(len(dataset_vocabulary), -1)
 
 
 
@@ -195,7 +195,7 @@ with open(config["dataset"]["elmopath"], "r") as elmo_file:
 KAT = []
 for key in elmo.keys():
     keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
+    token = dataset_vocabulary.to_indices(keylist)
     key_and_token = keylist + token
     KAT.append(key_and_token)
 elmo_token = {}
@@ -203,32 +203,61 @@ for item in KAT:
     elmo_token[item[1]] = elmo[item[0]]
 
 elmo_list = []
-for i in range(len(glovevocabulary)):
+for i in range(len(dataset_vocabulary)):
     if i in elmo_token.keys():
         elmo_list.append(elmo_token[i])
     else:
         randArray = random.random(size=(1, 1024)).tolist()
         elmo_list.append(randArray[0])
-elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
+elmo_token = torch.Tensor(elmo_list).view(len(dataset_vocabulary), -1)
 
 if args.numberbatch:
     # EMB_PATHS = [config["dataset"]["numberbatch"], config["dataset"]["transe"]]
 
     # cp_emb = [np.load(config["dataset"]["numberbatch"]) for path in EMB_PATHS]
-    cp_emb = torch.tensor(np.load(config["dataset"]["numberbatch"]), dtype=torch.float)
+    numb = {} # dict with keys the word and values the values from numb file.
+    with open(config["dataset"]["numberbatchpath"], "r") as numb_path:
+        next(numb_path)
+        for line in numb_path:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], "float32")
+            numb[word] = vector
+    KAT = []
+    for key in numb.keys():
+        keylist = [key]
+        token = dataset_vocabulary.to_indices(keylist) # list of idxs for the given words
+        key_and_token = keylist + token
+        KAT.append(key_and_token)
+    numb_token = {} # dict with keys the idx of the word and values the embedding of the word from numb file.
+    for item in KAT:
+        numb_token[item[1]] = numb[item[0]]
 
-    concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
-    print('| num_concepts: {} |'.format(concept_num))
+    numb_list = []
+    for i in range(len(dataset_vocabulary)):
+        if i in numb_token.keys():
+            numb_list.append(numb_token[i])
+        else:
+            randArray = random.random(size=(1, 300)).tolist()
+            numb_list.append(randArray[0])
 
+    numb_token = torch.Tensor(numb_list).view(len(dataset_vocabulary), -1)
 
+    # cp_emb = torch.tensor(np.load(config["dataset"]["numberbatch"]), dtype=torch.float)
+
+    # concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
+    # print('| num_concepts: {} |'.format(concept_num))
+
+print("elmo_token.shape = ", elmo_token.shape)
+print("numb_token.shape = ", numb_token.shape)
 # Pass vocabulary to construct Embedding layer.
 if not args.numberbatch:
     encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
     decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
     decoder.w_embed = encoder.w_embed
 else:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, True)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, cp_emb, elmo_token, True)
+    encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
     decoder.w_embed = encoder.w_embed
 
 print("Encoder: {}".format(config["model"]["encoder"]))

@@ -6,7 +6,7 @@ dataset:
   word_counts_json: 'data/visdial_1.0_word_counts_train.json'
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
-  numberbatch: 'data/transe/concept.nb.npy'
+  numberbatchpath: 'data/transe/numberbatch-en-19.08.txt'
 
   img_norm: 1
   concat_history: false
