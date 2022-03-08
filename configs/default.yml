@@ -7,6 +7,9 @@ dataset:
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
   numberbatchpath: 'data/transe/numberbatch-en-19.08.txt'
+  elmo_visdial_path: 'data/elmo_visdial.json.npy'
+  glove_visdial_path: 'data/glove_visdial.json.npy'
+  numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
 
   img_norm: 1
   concat_history: false
