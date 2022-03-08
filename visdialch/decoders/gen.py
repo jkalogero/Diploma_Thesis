@@ -3,7 +3,7 @@ from torch import nn
 
 
 class GenerativeDecoder(nn.Module):
-    def __init__(self, config, vocabulary,glove, elmo):
+    def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
         super().__init__()
         self.config = config
 
@@ -12,21 +12,28 @@ class GenerativeDecoder(nn.Module):
         #     config["word_embedding_size"],
         #     padding_idx=vocabulary.PAD_INDEX,
         # )
-        self.glove_embed = nn.Embedding(
-            len(vocabulary), config["glove_embedding_size"]
+
+        emb_size = "numberbatch_embedding_size" if numberbatch else "glove_embedding_size"
+
+        self.w_embed = nn.Embedding(
+            len(vocabulary), config[emb_size]
         )
+        self.w_embed.weight.data = embedding
+        self.w_embed.weight.requires_grad = False
+
+        self.numberbatch=numberbatch
+
         self.elmo_embed = nn.Embedding(
             len(vocabulary), config["elmo_embedding_size"]
         )
-        self.glove_embed.weight.data = glove
+    
         self.elmo_embed.weight.data = elmo
-        self.glove_embed.weight.requires_grad = False
         self.elmo_embed.weight.requires_grad = False
         self.embed_change = nn.Linear(
             config["elmo_embedding_size"], config["word_embedding_size"]
         )
         self.answer_rnn = nn.LSTM(
-            config["glove_embedding_size"] + config["word_embedding_size"],
+            config[emb_size] + config["word_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
             batch_first=True,
@@ -63,11 +70,11 @@ class GenerativeDecoder(nn.Module):
             # shape: (batch_size * num_rounds, max_sequence_length,
             #         word_embedding_size)
             # answers_embed = self.word_embed(ans_in)
-            answers_embed_glove = self.glove_embed(ans_in)
+            answers_embed_emb = self.w_embed(ans_in)
             answers_embed_elmo = self.elmo_embed(ans_in)
             answers_embed_elmo = self.dropout(answers_embed_elmo)
             answers_embed_elmo = self.embed_change(answers_embed_elmo)
-            answers_embed = torch.cat((answers_embed_glove,answers_embed_elmo),-1)
+            answers_embed = torch.cat((answers_embed_emb,answers_embed_elmo),-1)
             print('answers_embed.shape = ', answers_embed.shape)
 
             # reshape encoder output to be set as initial hidden state of LSTM.
@@ -104,11 +111,11 @@ class GenerativeDecoder(nn.Module):
 
             # shape: (batch_size * num_rounds * num_options, max_sequence_length
             #         word_embedding_size)
-            answers_embed_glove = self.glove_embed(ans_in)
+            answers_embed_emb = self.w_embed(ans_in)
             answers_embed_elmo = self.elmo_embed(ans_in)
             answers_embed_elmo = self.dropout(answers_embed_elmo)
             answers_embed_elmo = self.embed_change(answers_embed_elmo)
-            answers_embed = torch.cat((answers_embed_glove,answers_embed_elmo),-1)
+            answers_embed = torch.cat((answers_embed_emb,answers_embed_elmo),-1)
             print('check2')
             print('answers_embed.shape val= ', answers_embed.shape)
             # reshape encoder output to be set as initial hidden state of LSTM.
