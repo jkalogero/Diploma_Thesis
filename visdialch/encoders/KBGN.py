@@ -8,15 +8,26 @@ from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 
 class KBGN(nn.Module):
-    def __init__(self, config, vocabulary, glove, elmo, pretrained_concept_emb, concept_num, concept_in_dim):
+    def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
+        """
+        Parameters:
+        ===========
+        embedding: glove || numberbatch
+
+        """
         super(KBGN, self).__init__()
         self.config = config
+        
+        emb_size = "numberbatch_embedding_size" if numberbatch else "glove_embedding_size"
 
-        self.glove_embed = nn.Embedding(
-            len(vocabulary), config["glove_embedding_size"]
+        self.w_embed = nn.Embedding(
+            len(vocabulary), config[emb_size]
         )
-        self.glove_embed.weight.data = glove
-
+        self.w_embed.weight.data = embedding
+        
+        # self.numberbatch_embed = nn.Embedding(len(vocabulary), config["numberbatch_embedding_size"])
+        # self.numberbatch_embed.weight.data.copy_(embedding)
+        
         self.elmo_embed = nn.Embedding(
             len(vocabulary), config["elmo_embedding_size"]
         )
@@ -29,8 +40,9 @@ class KBGN(nn.Module):
             config["elmo_embedding_size"],config["word_embedding_size"]
         )
 
+
         self.q_rnn = nn.LSTM(
-            config["glove_embedding_size"] + config["word_embedding_size"],
+            config[emb_size] + config["word_embedding_size"],
             # config["glove_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
@@ -42,7 +54,7 @@ class KBGN(nn.Module):
         self.q_rnn = DynamicRNN(self.q_rnn)
 
         self.hist_rnn = nn.LSTM(
-            config["glove_embedding_size"],
+            config[emb_size] + config["word_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
             batch_first=True,
@@ -96,26 +108,30 @@ class KBGN(nn.Module):
         # Embed questions
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
         # print("ques.device = ",ques.device)
-        ques_embed_glove = self.glove_embed(ques)
-        ques_embed_glove = self.dropout(ques_embed_glove)# delete
+        ques_embed_emb = self.w_embed(ques)
         ques_embed_elmo = self.elmo_embed(ques)
         ques_embed_elmo = self.dropout(ques_embed_elmo)
         ques_embed_elmo = self.embed_change(ques_embed_elmo)
-        ques_embed = torch.cat((ques_embed_glove,ques_embed_elmo),-1)
+        ques_embed = torch.cat((ques_embed_emb,ques_embed_elmo),-1)
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         # print("ques_embed.shape = ", ques_embed.shape)
-
+        ques_embed = ques_embed.view(batch_size, num_rounds, -1)
         # Embed history
+        # print('batch_size= ', batch_size , 'num_rounds = ', num_rounds)
         hist = hist.view(batch_size * num_rounds, max_sequence_length * 2)
-        hist_embed_glove = self.glove_embed(hist)
-        # hist_embed_glove = self.dropout(hist_embed_glove) # delete
+        # print("hi.shape = ", hist.shape)
+
+        hist_embed_emb = self.w_embed(hist)
+        # hist_embed_emb = self.dropout(hist_embed_emb) # delete
         hist_embed_elmo = self.elmo_embed(hist)
         hist_embed_elmo = self.dropout(hist_embed_elmo)
         hist_embed_elmo = self.embed_change(hist_embed_elmo)
-        hist_embed = torch.cat((hist_embed_glove, hist_embed_elmo), -1)
-        # print("hist_embed_glove.shape = ", hist_embed_glove.shape)
+        # print("hist_embed_elmo.shape = ", hist_embed_elmo.shape)
+        # print("hist_embed_emb.shape = ", hist_embed_emb.shape)
+        hist_embed = torch.cat((hist_embed_emb, hist_embed_elmo), -1)
+        # print("hist_embed_emb.shape = ", hist_embed_emb.shape)
         
-        _, (hist_embed, _) = self.hist_rnn(hist_embed_glove, batch["hist_len"])
+        _, (hist_embed, _) = self.hist_rnn(hist_embed, batch["hist_len"])
         
         # print("hist_embed.shape = ", hist_embed.shape)
         hist_embed = hist_embed.view(batch_size, num_rounds, -1)

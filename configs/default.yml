@@ -8,6 +8,22 @@ dataset:
   glovepath: 'data/glove.6B.300d.txt'
   transe: 'data/transe/glove.transe.sgd.ent.npy'
   numberbatch: 'data/transe/concept.nb.npy'
+  numberbatchpath: 'data/transe/numberbatch-en-19.08.txt'
+  elmo_visdial_path: 'data/elmo_visdial.json.npy'
+  glove_visdial_path: 'data/glove_visdial.json.npy'
+  numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
+  tokenized_questions_train: 'data/tokenized_questions_train.json'
+  tokenized_answers_train: 'data/tokenized_answers_train.json'
+  tokenized_captions_train: 'data/tokenized_captions_train.json'
+  tokenized_dialogs_train: 'data/tokenized_dialogs_train.json'
+  tokenized_questions_val2018: 'data/tokenized_questions_val.json'
+  tokenized_answers_val2018: 'data/tokenized_answers_val.json'
+  tokenized_captions_val2018: 'data/tokenized_captions_val.json'
+  tokenized_dialogs_val2018: 'data/tokenized_dialogs_val.json'
+  tokenized_questions_test2018: 'data/tokenized_questions_test.json'
+  tokenized_answers_test2018: 'data/tokenized_answers_test.json'
+  tokenized_captions_test2018: 'data/tokenized_captions_test.json'
+  tokenized_dialogs_test2018: 'data/tokenized_dialogs_test.json'
 
   img_norm: 1
   concat_history: false
@@ -34,6 +50,7 @@ model:
 
   glove_embedding_size: 300
   elmo_embedding_size: 1024
+  numberbatch_embedding_size: 300
 
   caption_word_size_out1: 256
   caption_lstm_numlayers_1: 2

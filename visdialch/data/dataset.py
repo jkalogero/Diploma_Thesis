@@ -25,16 +25,20 @@ class VisDialDataset(Dataset):
                  num_workers: int = 1,
                  return_options: bool = True,
                  add_boundary_toks: bool = False,
-                 sample_graph: bool = True):
+                 sample_graph: bool = True,
+                 load_dialog: bool = False):
 
         super().__init__()
         self.config = config
         self.return_options = return_options
         self.add_boundary_toks = add_boundary_toks
+        self.load_dialog = load_dialog
         self.dialogs_reader = DialogsReader(
             dialogs_jsonpath,
+            config,
             num_examples=(5 if overfit else None),
-            num_workers=num_workers
+            num_workers=num_workers,
+            load_dialog=True
         )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
@@ -130,6 +134,8 @@ class VisDialDataset(Dataset):
         answers_out, _ = self._pad_sequences(
             [dialog_round["answer"][1:] for dialog_round in dialog]
         )
+        # print("answers_in = ", answers_in)
+        # print("answers_out = ", answers_out)
         # alt_history, alt_history_lengths = self._get_history_alt(
         #     caption,
         #     [dialog_round["question"] for dialog_round in dialog],
@@ -139,16 +145,16 @@ class VisDialDataset(Dataset):
         # print("HISTORY ALT[0][1][0] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][0]])
         # print("HISTORY ALT[0][1][1] = ", [self.vocabulary.index2word[int(index)] for index in alt_history[1][1]])
 
-        answer_options = []
-        answer_option_lengths = []
-        for dialog_round in dialog:
-            options, option_lengths = self._pad_sequences(dialog_round["answer_options"])
-            answer_options.append(options)
-            answer_option_lengths.append(option_lengths)
-        answer_options = torch.stack(answer_options, 0)
+        # answer_options = []
+        # answer_option_lengths = []
+        # for dialog_round in dialog:
+        #     options, option_lengths = self._pad_sequences(dialog_round["answer_options"])
+        #     answer_options.append(options)
+        #     answer_option_lengths.append(option_lengths)
+        # answer_options = torch.stack(answer_options, 0)
 
-        if "test" not in self.split:
-            answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
+        # if "test" not in self.split:
+        #     answer_indices = [dialog_round["gt_index"] for dialog_round in dialog]
         
         # external knowledge
         col, row, data, shape, concepts = self.adj_reader[image_id]

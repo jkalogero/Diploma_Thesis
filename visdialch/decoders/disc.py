@@ -6,26 +6,32 @@ from visdialch.utils import DynamicRNN
 
 class DiscriminativeDecoder(nn.Module):
     # def __init__(self, config, vocabulary,glove,elmo):
-    def __init__(self, config, vocabulary,glove, elmo):
+    def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
         super().__init__()
         self.config = config
+        emb_size = "numberbatch_embedding_size" if numberbatch else "glove_embedding_size"
 
-        self.glove_embed = nn.Embedding(
-            len(vocabulary), config["glove_embedding_size"]
+        self.w_embed = nn.Embedding(
+            len(vocabulary), config[emb_size]
         )
+        self.w_embed.weight.data = embedding
+        self.w_embed.weight.requires_grad = False
+
+        self.numberbatch=numberbatch
+
         self.elmo_embed = nn.Embedding(
             len(vocabulary), config["elmo_embedding_size"]
         )
-        self.glove_embed.weight.data = glove
+        
         self.elmo_embed.weight.data = elmo
-        self.glove_embed.weight.requires_grad = False
         self.elmo_embed.weight.requires_grad = False
         self.embed_change = nn.Linear(
             config["elmo_embedding_size"], config["word_embedding_size"]
         )
 
 
-        self.option_rnn = nn.LSTM(config["glove_embedding_size"] + config["word_embedding_size"],
+
+        self.option_rnn = nn.LSTM(config[emb_size] + config["word_embedding_size"],
                                   config["lstm_hidden_size"],
                                   config["lstm_num_layers"],
                                   batch_first=True,
@@ -52,11 +58,11 @@ class DiscriminativeDecoder(nn.Module):
         nonzero_options_length = options_length[nonzero_options_length_indices]
         nonzero_options = options[nonzero_options_length_indices]
 
-        nonzero_options_embed_glove = self.glove_embed(nonzero_options)
+        nonzero_options_embed_emb = self.w_embed(nonzero_options)
         nonzero_options_embed_elmo = self.elmo_embed(nonzero_options)
         nonzero_options_embed_elmo = self.dropout(nonzero_options_embed_elmo)
         nonzero_options_embed_elmo = self.embed_change(nonzero_options_embed_elmo)
-        nonzero_options_embed = torch.cat((nonzero_options_embed_glove,nonzero_options_embed_elmo),-1)
+        nonzero_options_embed = torch.cat((nonzero_options_embed_emb,nonzero_options_embed_elmo),-1)
         
 
         _, (nonzero_options_embed, _) = self.option_rnn(

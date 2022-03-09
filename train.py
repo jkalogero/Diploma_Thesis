@@ -66,6 +66,7 @@ parser.add_argument(
     "--validate", action="store_true",
     help="Whether to validate on val split after every epoch."
 )
+parser.set_defaults(validate=True)
 parser.add_argument(
     "--in-memory", action="store_true",
     help="Load the whole dataset and pre-extracted image features in memory. Use only in "
@@ -80,6 +81,16 @@ parser.add_argument(
 parser.add_argument(
     "--load-pthpath", default="",
     help="To continue training, path to .pth file of saved checkpoint."
+)
+
+parser.add_argument(
+    "--numberbatch", action="store_true",
+    help="Use numberbatch instead of GloVe."
+)
+
+parser.add_argument(
+    "--load-dialog", action="store_true",
+    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
 )
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
@@ -122,7 +133,10 @@ train_dataset = VisDialDataset(
     args.adj_train_h5,
     overfit=args.overfit, 
     in_memory=args.in_memory,
-    num_workers=args.cpu_workers
+    num_workers=args.cpu_workers,
+    return_options=True if config["model"]["decoder"] == "disc" else False,
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True,
+    load_dialog = args.load_dialog
 )
 train_dataloader = DataLoader(
     train_dataset, 
@@ -138,7 +152,10 @@ val_dataset = VisDialDataset(
     dense_annotations_jsonpath=args.val_dense_json, 
     overfit=args.overfit,
     in_memory=args.in_memory,
-    num_workers=args.cpu_workers
+    num_workers=args.cpu_workers,
+    return_options=True,
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True,
+    load_dialog = args.load_dialog
 )
 val_dataloader = DataLoader(
     val_dataset, 
@@ -146,60 +163,19 @@ val_dataloader = DataLoader(
     num_workers=args.cpu_workers
 )
 
-print('GLOVE')
-# Read GloVe word embedding data
-glove = {}
-with open(config["dataset"]["glovepath"], "r") as glove_file:
-    for line in glove_file:
-        values = line.split()
-        word = values[0]
-        vector = np.asarray(values[1:], "float32")
-        glove[word] = vector
-glovevocabulary = Vocabulary(
+
+dataset_vocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
-KAT = []
-for key in glove.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-glove_token = {}
-for item in KAT:
-    glove_token[item[1]] = glove[item[0]]
+# Read GloVe word embedding data
+if not args.numberbatch:
+    glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-glove_list = []
-for i in range(len(glovevocabulary)):
-    if i in glove_token.keys():
-        glove_list.append(glove_token[i])
-    else:
-        randArray = random.random(size=(1, 300)).tolist()
-        glove_list.append(randArray[0])
-glove_token = torch.Tensor(glove_list).view(len(glovevocabulary), -1)
+else:
+    numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-
-print('ELMO')
 # Read ELMo word embedding data
-with open(config["dataset"]["elmopath"], "r") as elmo_file:
-    elmo = json.load(elmo_file)
-KAT = []
-for key in elmo.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-elmo_token = {}
-for item in KAT:
-    elmo_token[item[1]] = elmo[item[0]]
-
-elmo_list = []
-for i in range(len(glovevocabulary)):
-    if i in elmo_token.keys():
-        elmo_list.append(elmo_token[i])
-    else:
-        randArray = random.random(size=(1, 1024)).tolist()
-        elmo_list.append(randArray[0])
-elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary), -1)
+elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
 print("Numberbatch")
 EMB_PATHS = [config["dataset"]["numberbatch"], config["dataset"]["transe"]]
@@ -211,13 +187,19 @@ concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
 print('| num_concepts: {} |'.format(concept_num))
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, cp_emb, concept_num, concept_dim)
-decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token)
+if not args.numberbatch:
+    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder.w_embed = encoder.w_embed
+else:
+    encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+    decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+    decoder.w_embed = encoder.w_embed
+
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Share word embedding between encoder and decoder.
-decoder.glove_embed = encoder.glove_embed
 decoder.elmo_embed = encoder.elmo_embed
 decoder.embed_change = encoder.embed_change
 
@@ -296,6 +278,10 @@ else:
 # ================================================================================================
 
 # Forever increasing counter keeping track of iterations completed (for tensorboard logging).
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+print('Number of parameters in model: ', count_parameters(model))
 global_iteration_step = start_epoch * iterations
 
 for epoch in range(start_epoch, config["solver"]["num_epochs"]):
@@ -315,7 +301,12 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
                 batch[key] = batch[key].to(device)
         optimizer.zero_grad()
         output = model(batch)
-        batch_loss = criterion(output.view(-1, output.size(-1)), batch["ans_ind"].view(-1))
+        target = (
+            batch["ans_ind"]
+            if config["model"]["decoder"] == "disc"
+            else batch["ans_out"]
+        )
+        batch_loss = criterion(output.view(-1, output.size(-1)), target.view(-1))
         batch_loss.backward()
         optimizer.step()
 
