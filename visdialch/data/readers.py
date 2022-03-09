@@ -14,6 +14,7 @@ Each reader must atleast implement three methods:
 """
 
 import copy
+from distutils.command.config import config
 import json
 import multiprocessing as mp
 from typing import Any, Dict, List, Optional, Set, Union
@@ -43,13 +44,16 @@ class DialogsReader(object):
     def __init__(
         self,
         dialogs_jsonpath: str,
+        config,
         num_examples: Optional[int] = None,
         num_workers: int = 1,
+        load_dialog: bool = False
     ):
         with open(dialogs_jsonpath, "r") as visdial_file:
             visdial_data = json.load(visdial_file)
-            self._split = visdial_data["split"]
-
+        self._split = visdial_data["split"]
+        
+        if not load_dialog:
             # Maintain questions and answers as a dict instead of list because
             # they are referenced by index in dialogs. We drop elements from
             # these in "overfit" mode to save time (tokenization is slow).
@@ -69,43 +73,42 @@ class DialogsReader(object):
 
             # ``image_id``` serves as key for all three dicts here.
             self.captions: Dict[int, Any] = {}
-            self.dialogs: Dict[int, Any] = {}
-            self.num_rounds: Dict[int, Any] = {}
+        
+        self.dialogs: Dict[int, Any] = {}
+        self.num_rounds: Dict[int, Any] = {}
+        all_dialogs = visdial_data["data"]["dialogs"]
 
-            all_dialogs = visdial_data["data"]["dialogs"]
-
-            # Retain only first ``num_examples`` dialogs if specified.
-            if num_examples is not None:
-                all_dialogs = all_dialogs[:num_examples]
-
-            for _dialog in all_dialogs:
-
+        # Retain only first ``num_examples`` dialogs if specified.
+        if num_examples is not None:
+            all_dialogs = all_dialogs[:num_examples]
+        for _dialog in all_dialogs:
+            if not load_dialog:
                 self.captions[_dialog["image_id"]] = _dialog["caption"]
 
-                # Record original length of dialog, before padding.
-                # 10 for train and val splits, 10 or less for test split.
-                self.num_rounds[_dialog["image_id"]] = len(_dialog["dialog"])
+            # Record original length of dialog, before padding.
+            # 10 for train and val splits, 10 or less for test split.
+            self.num_rounds[_dialog["image_id"]] = len(_dialog["dialog"])
+            # Pad dialog at the end with empty question and answer pairs
+            # (for test split).
+            while len(_dialog["dialog"]) < 10:
+                _dialog["dialog"].append({"question": -1, "answer": -1})
 
-                # Pad dialog at the end with empty question and answer pairs
-                # (for test split).
-                while len(_dialog["dialog"]) < 10:
-                    _dialog["dialog"].append({"question": -1, "answer": -1})
+            # Add empty answer (and answer options) if not provided
+            # (for test split). We use "-1" as a key for empty questions
+            # and answers.
+            for i in range(len(_dialog["dialog"])):
+                if "answer" not in _dialog["dialog"][i]:
+                    _dialog["dialog"][i]["answer"] = -1
+                if "answer_options" not in _dialog["dialog"][i]:
+                    _dialog["dialog"][i]["answer_options"] = [-1] * 100
 
-                # Add empty answer (and answer options) if not provided
-                # (for test split). We use "-1" as a key for empty questions
-                # and answers.
-                for i in range(len(_dialog["dialog"])):
-                    if "answer" not in _dialog["dialog"][i]:
-                        _dialog["dialog"][i]["answer"] = -1
-                    if "answer_options" not in _dialog["dialog"][i]:
-                        _dialog["dialog"][i]["answer_options"] = [-1] * 100
+            self.dialogs[_dialog["image_id"]] = _dialog["dialog"]
 
-                self.dialogs[_dialog["image_id"]] = _dialog["dialog"]
-
-            # If ``num_examples`` is specified, collect questions and answers
-            # included in those examples, and drop the rest to save time while
-            # tokenizing. Collecting these should be fast because num_examples
-            # during debugging are generally small.
+        # If ``num_examples`` is specified, collect questions and answers
+        # included in those examples, and drop the rest to save time while
+        # tokenizing. Collecting these should be fast because num_examples
+        # during debugging are generally small.
+        if not load_dialog:
             if num_examples is not None:
                 questions_included: Set[int] = set()
                 answers_included: Set[int] = set()
@@ -125,6 +128,28 @@ class DialogsReader(object):
                 }
 
             self._multiprocess_tokenize(num_workers)
+            # save questions, answers, captions
+            with open(config['tokenized_questions_'+ self.split], 'w') as f:
+                json.dump(self.questions, f)
+            print('Saved tokenized questions.')
+            with open(config['tokenized_answers_'+ self.split], 'w') as f:
+                json.dump(self.answers, f)
+            print('Saved tokenized answers.')
+            with open(config['tokenized_captions_'+ self.split], 'w') as f:
+                json.dump(self.captions, f)
+            print('Saved tokenized captions.')
+            
+        else:
+            with open(config['tokenized_questions_'+ self.split], 'r') as f:
+                self.questions = json.load(f)
+            print('Loaded tokenized questions.')
+            with open(config['tokenized_answers_'+ self.split], 'r') as f:
+                self.answers = json.load(f)
+            print('Loaded tokenized answers.')
+            with open(config['tokenized_captions_'+ self.split], 'r') as f:
+                self.captions = json.load(f)
+            print('Loaded tokenized captions.')
+
 
     def _multiprocess_tokenize(self, num_workers: int):
         """
@@ -193,23 +218,23 @@ class DialogsReader(object):
         return len(self.dialogs)
 
     def __getitem__(self, image_id: int) -> Dict[str, Union[int, str, List]]:
-        caption_for_image = self.captions[image_id]
+        caption_for_image = self.captions[str(image_id)]
         dialog = copy.copy(self.dialogs[image_id])
         num_rounds = self.num_rounds[image_id]
 
         # Replace question and answer indices with actual word tokens.
         for i in range(len(dialog)):
             dialog[i]["question"] = self.questions[
-                dialog[i]["question"]
+                str(dialog[i]["question"])
             ]
             dialog[i]["answer"] = self.answers[
-                dialog[i]["answer"]
+                str(dialog[i]["answer"])
             ]
             for j, answer_option in enumerate(
                 dialog[i]["answer_options"]
             ):
                 dialog[i]["answer_options"][j] = self.answers[
-                    answer_option
+                    str(answer_option)
                 ]
 
         return {
@@ -330,3 +355,51 @@ class ImageFeaturesHdfReader(object):
     @property
     def split(self):
         return self._split
+
+
+
+class PreprocessedDialogsReader(object):
+    """
+    A simple reader for preprocessed VisDial v1.0 dialog data.
+    The json file must have the structure as below:
+    
+    image_id:
+        |
+        |-- questions
+        |-- ques_len
+        |-- answers
+        |-- ans_in
+        |-- ans_out
+        |-- ans_len
+        |-- history
+        |-- hist_len
+        |-- img_ids
+
+    Parameters
+    ----------
+    dialogs_jsonpath : str
+        Path to json file containing VisDial v1.0 train, val or test data.
+    """
+
+
+    def __init__(
+        self,
+        dialogs_jsonpath: str,
+        config,
+    ):
+        with open(dialogs_jsonpath, "r") as visdial_file:
+            visdial_data = json.load(visdial_file)
+        
+        self._split = visdial_data["split"]
+
+        
+
+    def __len__(self):
+            return len(self.dialogs)
+    def __getitem__(self, image_id: int) -> Dict[str, Union[int, str, List]]:
+            item = {}
+            return item
+    def keys(self) -> List[int]:
+            return list(self.dialogs.keys())
+    def split(self):
+            return self._split

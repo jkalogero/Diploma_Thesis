@@ -87,6 +87,11 @@ parser.add_argument(
     help="Use numberbatch instead of GloVe."
 )
 
+parser.add_argument(
+    "--load-dialog", action="store_true",
+    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
+)
+
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
@@ -128,7 +133,8 @@ train_dataset = VisDialDataset(
     in_memory=args.in_memory,
     num_workers=args.cpu_workers,
     return_options=True if config["model"]["decoder"] == "disc" else False,
-    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True,
+    load_dialog = args.load_dialog
 )
 train_dataloader = DataLoader(
     train_dataset, 
@@ -145,7 +151,8 @@ val_dataset = VisDialDataset(
     in_memory=args.in_memory,
     num_workers=args.cpu_workers,
     return_options=True,
-    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
+    add_boundary_toks=False if config["model"]["decoder"] == "disc" else True,
+    load_dialog = args.load_dialog
 )
 val_dataloader = DataLoader(
     val_dataset, 

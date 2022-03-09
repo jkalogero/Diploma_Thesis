@@ -23,16 +23,20 @@ class VisDialDataset(Dataset):
                  in_memory: bool = False,
                  num_workers: int = 1,
                  return_options: bool = True,
-                 add_boundary_toks: bool = False):
+                 add_boundary_toks: bool = False,
+                 load_dialog: bool = False):
 
         super().__init__()
         self.config = config
         self.return_options = return_options
         self.add_boundary_toks = add_boundary_toks
+        self.load_dialog = load_dialog
         self.dialogs_reader = DialogsReader(
             dialogs_jsonpath,
+            config,
             num_examples=(5 if overfit else None),
-            num_workers=num_workers
+            num_workers=num_workers,
+            load_dialog=True
         )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
@@ -403,12 +407,3 @@ class VisDialDataset(Dataset):
         sequences = torch.tensor(sequences).view(self.config["caption_round_num"] ,self.config["caption_maxlen_each"])
       
         return sequences,caption_len
-
-    def _get_relations(self, num_of_nodes=36, edge_feature_size = 2048):
-        """
-        For now it generates a random matrix of the shape 
-        [num_of_nodes, num_of_nodes, edge_feature_size]
-        """
-        edge_features = torch.rand((num_of_nodes, num_of_nodes, edge_feature_size), dtype=torch.float)
-        
-        return edge_features
