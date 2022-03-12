@@ -389,25 +389,27 @@ class AdjacencyMatricesReader(object):
 
     def __init__(self, adj_path:str, in_memory=False):
         self.adj_path = adj_path
-        self.len = None
-        with h5py.File(self.adj_path, "r") as f:
-            self.len = len(list(f.keys()))
-        
+        # self.len = None
+        # print('before opening adj file')
+        # with h5py.File(self.adj_path, "r") as f:
+        #     self.len = len(list(f.keys()))
+        # print('after opening adj file')
     
     def __len__(self):
-        return self.len
+        # return self.len
+        raise NotImplementedError
     
     def __getitem__(self, image_id: int):
-        col, row, data, shape, concepts = [], [], [], [], []
+        col, row, shape, concepts = [], [], [], []
         with h5py.File(self.adj_path, "r") as f:
             for _round in f[str(image_id)].keys():
                 # d.append(list(f[str(image_id)][_round]))
                 col.append(np.array(f[str(image_id)][_round]['col']))
                 row.append(np.array(f[str(image_id)][_round]['row']))
-                data.append(np.array(f[str(image_id)][_round]['data']))
+                # data.append(np.array(f[str(image_id)][_round]['data']))
                 shape.append(np.array(f[str(image_id)][_round]['shape']))
                 concepts.append(np.array(f[str(image_id)][_round]['concepts']))
-        return col, row, data, shape, concepts
+        return col, row, shape, concepts
 
 
 class PreprocessedDialogsReader(object):

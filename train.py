@@ -23,6 +23,10 @@ from visdialch.data.vocabulary import Vocabulary
 
 import json
 
+# import torch.multiprocessing
+# torch.multiprocessing.set_sharing_strategy('file_system')
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--config-yml", default="configs/default.yml",
@@ -42,6 +46,14 @@ parser.add_argument(
 )
 parser.add_argument(
     "--adj-train-h5", default="data/chunked_adj_train_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
+parser.add_argument(
+    "--adj-val-h5", default="data/adj_val_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
+parser.add_argument(
+    "--adj-test-h5", default="data/adj_test_paths.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(
@@ -148,7 +160,7 @@ train_dataloader = DataLoader(
 val_dataset = VisDialDataset(
     config["dataset"], 
     args.val_json,
-    args.adj_train_h5,
+    args.adj_val_h5,
     dense_annotations_jsonpath=args.val_dense_json, 
     overfit=args.overfit,
     in_memory=args.in_memory,
@@ -177,14 +189,6 @@ else:
 # Read ELMo word embedding data
 elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-print("Numberbatch")
-EMB_PATHS = [config["dataset"]["numberbatch"], config["dataset"]["transe"]]
-
-cp_emb = [np.load(path) for path in EMB_PATHS]
-cp_emb = torch.tensor(np.concatenate(cp_emb, 1), dtype=torch.float)
-
-concept_num, concept_dim = cp_emb.size(0), cp_emb.size(1)
-print('| num_concepts: {} |'.format(concept_num))
 
 # Pass vocabulary to construct Embedding layer.
 if not args.numberbatch:
@@ -297,8 +301,7 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     print(f"\nTraining for epoch {epoch}:")
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
-            if key != 'adj_data':
-                batch[key] = batch[key].to(device)
+            batch[key] = batch[key].to(device)
         optimizer.zero_grad()
         output = model(batch)
         target = (

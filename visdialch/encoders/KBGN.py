@@ -65,11 +65,6 @@ class KBGN(nn.Module):
 
         self.dropout = nn.Dropout(p=config["dropout"])
 
-        # Numberbatch
-        self.c_emb = nn.Embedding(concept_num, concept_in_dim)
-        self.c_emb.weight.data.copy_(pretrained_concept_emb)
-        # self.dropout_ext_k = nn.Dropout(p=config["dropout"])
-
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
         self.KnowldgeRetrieval = KnowledgeRetrieval(config)
@@ -78,26 +73,10 @@ class KBGN(nn.Module):
 
     def forward(self, batch):
         # Get data
-
-        print('CHEKCING CONCEPTS')
         concepts = batch['concept_ids']
         rel = batch['n_rel']
         lengths = batch['adj_lengths']
-        data = batch['adj_data']
-
-        for _r,_ in enumerate(concepts):
-            for i in range(len(concepts[_r])):
-                print(len(concepts[_r])[i])
-            for i in range(len(rel[_r])):
-                print(len(rel[_r])[i])
-            for i in range(len(lengths[_r])):
-                print(len(lengths[_r])[i])
-            for i in range(len(data[_r])):
-                print(len(data[_r])[i])
-            # print(len(rel[_r]))
-            # print(len(lengths[_r]))        
-            # print(len(data[_r]))
-        print('CHEKCED CONCEPTS')
+        adj_list = batch['adj_list']
 
         img = batch["img_feat"]
         v_relations = batch["relations"]
