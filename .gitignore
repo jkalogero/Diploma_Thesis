@@ -7,5 +7,7 @@ testing_geometric.py
 *notes
 *_file
 log
+*_log
 error.log
+*_err
 data

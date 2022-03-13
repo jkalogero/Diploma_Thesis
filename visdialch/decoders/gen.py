@@ -59,10 +59,7 @@ class GenerativeDecoder(nn.Module):
         """
 
         if self.training:
-            print("GEN WHILE TRAINING")
             ans_in = batch["ans_in"]
-            print("ans_in.shape = ", ans_in.shape)
-            print("ans_in = ", ans_in)
             batch_size, num_rounds, max_sequence_length = ans_in.size()
 
             ans_in = ans_in.view(batch_size * num_rounds, max_sequence_length)
@@ -75,7 +72,6 @@ class GenerativeDecoder(nn.Module):
             answers_embed_elmo = self.dropout(answers_embed_elmo)
             answers_embed_elmo = self.embed_change(answers_embed_elmo)
             answers_embed = torch.cat((answers_embed_emb,answers_embed_elmo),-1)
-            print('answers_embed.shape = ', answers_embed.shape)
 
             # reshape encoder output to be set as initial hidden state of LSTM.
             # shape: (lstm_num_layers, batch_size * num_rounds,
@@ -99,10 +95,7 @@ class GenerativeDecoder(nn.Module):
             return ans_word_scores
 
         else:
-            print('check1')
             ans_in = batch["opt_in"]
-            print("ans_in.shape = ", ans_in.shape)
-            print("ans_in = ", ans_in)
             batch_size, num_rounds, num_options, max_sequence_length = (ans_in.size())
 
             ans_in = ans_in.view(
@@ -116,12 +109,9 @@ class GenerativeDecoder(nn.Module):
             answers_embed_elmo = self.dropout(answers_embed_elmo)
             answers_embed_elmo = self.embed_change(answers_embed_elmo)
             answers_embed = torch.cat((answers_embed_emb,answers_embed_elmo),-1)
-            print('check2')
-            print('answers_embed.shape val= ', answers_embed.shape)
             # reshape encoder output to be set as initial hidden state of LSTM.
             # shape: (lstm_num_layers, batch_size * num_rounds * num_options,
             #         lstm_hidden_size)
-            print('encoder_output.shape = ', encoder_output.shape)
             init_hidden = encoder_output.view(batch_size, num_rounds, 1, -1)
             init_hidden = init_hidden.repeat(1, 1, num_options, 1)
             init_hidden = init_hidden.view(
@@ -131,24 +121,19 @@ class GenerativeDecoder(nn.Module):
                 self.config["lstm_num_layers"], 1, 1
             )
             init_cell = torch.zeros_like(init_hidden)
-            print('init_cell.shape = ', init_cell.shape)
             # shape: (batch_size * num_rounds * num_options,
             #         max_sequence_length, lstm_hidden_size)
             ans_out, (hidden, cell) = self.answer_rnn(
                 answers_embed, (init_hidden, init_cell)
             )
-            print('check3')
-            print('ans_out.shape = ', ans_out.shape)
             # shape: (batch_size * num_rounds * num_options,
             #         max_sequence_length, vocabulary_size)
             ans_word_scores = self.logsoftmax(self.lstm_to_words(ans_out))
-            print('ans_word_scores.shape = ', ans_word_scores.shape)
             # shape: (batch_size * num_rounds * num_options,
             #         max_sequence_length)
             target_ans_out = batch["opt_out"].view(
                 batch_size * num_rounds * num_options, -1
             )
-            print('check4')
             # shape: (batch_size * num_rounds * num_options,
             #         max_sequence_length)
             ans_word_scores = torch.gather(
@@ -157,9 +142,6 @@ class GenerativeDecoder(nn.Module):
             ans_word_scores = (
                 ans_word_scores * (target_ans_out > 0).float().cuda()
             )  # ugly
-            print('check5')
             ans_scores = torch.sum(ans_word_scores, -1)
-            print('check6')
             ans_scores = ans_scores.view(batch_size, num_rounds, num_options)
-            print('check7')
             return ans_scores
