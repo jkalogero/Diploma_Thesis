@@ -7,6 +7,7 @@ from tqdm import tqdm
 import numpy as np
 from scipy.sparse import coo_matrix
 import pickle
+import h5py
 
 def load_resources(cpnet_vocab_path):
     global concept2id, id2concept, relation2id, id2relation
@@ -121,7 +122,17 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path, output_path):
         res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,80), total=len(grounded_concepts), desc='Generating adj matrices..')}
     
     # print(res)
-    with open(output_path, 'wb') as fout:
-        pickle.dump(res, fout)
-
+    # with open(output_path, 'wb') as fout:
+    #     pickle.dump(res, fout)
+    h = h5py.File(output_path)
+    for k,v in tqdm(res.items()):
+        grp = h.create_group(k)
+        for idx,_round in enumerate(v):
+            subgrp = grp.create_group(str(idx))
+            subgrp.create_dataset('row', data=_round['adj'].row, chunks=True)
+            subgrp.create_dataset('col', data=_round['adj'].col, chunks=True)
+            subgrp.create_dataset('data', data=_round['adj'].data, chunks=True)
+            subgrp.create_dataset('shape', data=_round['adj'].shape, chunks=True)
+            subgrp.create_dataset('concepts', data=_round['c'], chunks=True)
+    h.close()
     print(f'Adj matrices saved to {output_path}.\n')

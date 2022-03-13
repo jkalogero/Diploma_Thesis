@@ -41,7 +41,7 @@ DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
 # splits = ['train', 'val', 'test']
-splits = ['train']
+splits = ['val', 'test']
 
 dataset_paths = {
     'train': DATA_DIR + 'visdial_1.0_train.json',

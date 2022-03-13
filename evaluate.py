@@ -85,7 +85,10 @@ parser.add_argument(
     "--save-ranks-path", default="logs/ranks.json",
     help="Path (json) to save ranks, in a EvalAI submission format."
 )
-
+parser.add_argument(
+    "--numberbatch", action="store_true",
+    help="Use numberbatch instead of GloVe."
+)
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)
 torch.cuda.manual_seed_all(0)
@@ -116,84 +119,60 @@ for arg in vars(args):
 
 if args.split == "val":
     val_dataset = VisDialDataset(
-        config["dataset"], args.val_json, args.captions_val_json,args.val_dense_json,overfit=args.overfit,
-        in_memory=args.in_memory
+        config["dataset"], 
+        args.val_json, 
+        overfit=args.overfit,
+        in_memory=args.in_memory,
+        num_workers=args.cpu_workers,
+        return_options=True if config["model"]["decoder"] == "disc" else False,
+        add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
+        # load_dialog = args.load_dialog
     )
 else:
     val_dataset = VisDialDataset(
-        config["dataset"], args.test_json,caption_jsonpath =  args.captions_test_json , overfit=args.overfit, in_memory=args.in_memory
+        config["dataset"], 
+        args.test_json,
+        overfit=args.overfit, 
+        in_memory=args.in_memory,
+        num_workers=args.cpu_workers,
+        return_options=True if config["model"]["decoder"] == "disc" else False,
+        add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
+        # load_dialog = args.load_dialog
     )
 val_dataloader = DataLoader(
     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
 )
 
+dataset_vocabulary = Vocabulary(
+    config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
+)
+# Read GloVe word embedding data
+if not args.numberbatch:
+    glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
+else:
+    numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-glove = {}
-with open(config["dataset"]["glovepath"], "r") as glove_file:
-    for line in glove_file:
-        values = line.split()
-        word = values[0]
-        vector = np.asarray(values[1:], "float32")
-        glove[word] = vector
-glovevocabulary = Vocabulary(
-            config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
-        )
-KAT = []
-for key in glove.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-glove_token = {}
-for item in KAT:
-    glove_token[item[1]] = glove[item[0]]
-
-glove_list = []
-for i in range(len(glovevocabulary)):
-    if i in glove_token.keys():
-        glove_list.append(glove_token[i])
-    else:
-
-        randArray = random.random(size=(1,300)).tolist()
-        glove_list.append(randArray[0])
-glove_token = torch.Tensor(glove_list).view(len(glovevocabulary),-1)
-
-
-
-with open(config["dataset"]["elmopath"], "r") as elmo_file:
-    elmo = json.load(elmo_file)
-KAT = []
-for key in elmo.keys():
-    keylist = [key]
-    token = glovevocabulary.to_indices(keylist)
-    key_and_token = keylist + token
-    KAT.append(key_and_token)
-elmo_token = {}
-for item in KAT:
-    elmo_token[item[1]] = elmo[item[0]]
-
-elmo_list = []
-for i in range(len(glovevocabulary)):
-    if i in elmo_token.keys():
-        elmo_list.append(elmo_token[i])
-    else:
-        randArray = random.random(size=(1,1024)).tolist()
-        elmo_list.append(randArray[0])
-elmo_token = torch.Tensor(elmo_list).view(len(glovevocabulary),-1)
+# Read ELMo word embedding data
+elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
 
 # Pass vocabulary to construct Embedding layer.
-encoder = Encoder(config["model"], val_dataset.vocabulary,glove_token,elmo_token)
-decoder = Decoder(config["model"], val_dataset.vocabulary,glove_token,elmo_token)
+if not args.numberbatch:
+    encoder = Encoder(config["model"], val_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder = Decoder(config["model"], val_dataset.vocabulary, glove_token, elmo_token, False)
+    decoder.w_embed = encoder.w_embed
+else:
+    encoder = Encoder(config["model"], val_dataset.vocabulary, numb_token, elmo_token, True)
+    decoder = Decoder(config["model"], val_dataset.vocabulary, numb_token, elmo_token, True)
+    decoder.w_embed = encoder.w_embed
+
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Share word embedding between encoder and decoder.
-decoder.glove_embed = encoder.glove_embed
 decoder.elmo_embed = encoder.elmo_embed
 decoder.embed_change = encoder.embed_change
-
 
 # Wrap encoder and decoder in a model.
 model = EncoderDecoderModel(encoder, decoder).to(device)
