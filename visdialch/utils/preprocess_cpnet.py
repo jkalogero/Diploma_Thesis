@@ -41,7 +41,7 @@ DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
 # splits = ['train', 'val', 'test']
-splits = ['val', 'test']
+splits = ['train']
 
 dataset_paths = {
     'train': DATA_DIR + 'visdial_1.0_train.json',
@@ -57,10 +57,14 @@ dataset_tokenized_paths = {
 
 conceptnet_csv_file = DATA_DIR + 'cpnet/conceptnet-assertions-5.6.0.csv'
 conceptnet_vocab_file = DATA_DIR + 'cpnet/concept.txt'
+pad_conceptnet_vocab_file = DATA_DIR + 'cpnet/pad_concept.txt'
 conceptnet_en_file = DATA_DIR + 'cpnet/conceptnet.en.csv'
+pad_conceptnet_en_file = DATA_DIR + 'cpnet/pad_conceptnet.en.csv'
 conceptnet_patterns = DATA_DIR + 'cpnet/matcher_patterns.json'
 conceptnet_unpruned_graph = DATA_DIR + 'cpnet/conceptnet.en.unpruned.graph'
+pad_conceptnet_unpruned_graph = DATA_DIR + 'cpnet/pad_conceptnet.en.unpruned.graph'
 conceptnet_pruned_graph = DATA_DIR + 'cpnet/conceptnet.en.pruned.graph'
+pad_conceptnet_pruned_graph = DATA_DIR + 'cpnet/pad_conceptnet.en.pruned.graph'
 
 glove_file = DATA_DIR + 'glove.6B.300d.txt'
 glove_npy = DATA_DIR + 'glove.6B.300d.npy'
@@ -70,6 +74,7 @@ numberbatch_file = DATA_DIR + 'transe/numberbatch-en-19.08.txt'
 numberbatch_npy = DATA_DIR + 'transe/nb.npy'
 numberbatch_vocab = DATA_DIR + 'transe/nb.vocab'
 numberbatch_concept_npy = DATA_DIR + 'transe/concept.nb.npy'
+pad_numberbatch_concept_npy = DATA_DIR + 'transe/pad_concept.nb.npy'
 
 transe_ent = DATA_DIR + 'transe/glove.transe.sgd.ent.npy'
 transe_rel = DATA_DIR + 'transe/glove.transe.sgd.rel.npy'
@@ -218,7 +223,7 @@ def main():
     parser.add_argument(
         '--prune_threshold', 
         action="store_true",
-        default=0.17,
+        default=0.66,
         help='Use only a 5 examples, for debugging reasons.')
 
     args = parser.parse_args()
@@ -270,6 +275,8 @@ def main():
     if not files_exist([conceptnet_patterns]):
         create_matcher_patterns(conceptnet_vocab_file, conceptnet_patterns)
 
+    if args.debug:
+        sub_graphs_adj['train'] = '/home/'+username+'/KBGN-Implementation/data/debug_adj.h5'
 
     # ==================================================================================
     # Preprocess dataset files.
@@ -283,7 +290,7 @@ def main():
                     debug=args.debug)
 
     # Pair the dataset entities with the ConceptNet entities
-    if not files_exist([grounded[split] for split in splits]) or args.clear:
+    if (not files_exist([grounded[split] for split in splits]) or args.clear) and False:
         start_time = time.time()
         for split in splits:
             pairConcepts(
@@ -331,13 +338,16 @@ def main():
                 )
         print("--- Completed path pruning in %s seconds. ---" % (time.time() - start_time))
     
-    if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear:
+    if not files_exist([sub_graphs_adj[split] for split in splits]) or args.clear or args.debug:
         start_time = time.time()
         for split in splits:
             generateAdj(
                 grounded[split],
                 conceptnet_pruned_graph,
                 conceptnet_vocab_file,
+                transe_ent,
+                transe_rel,
+                args.prune_threshold,
                 sub_graphs_adj[split]
                 )
         print("--- Completed generating subgraphs in %s seconds. ---" % (time.time() - start_time))
