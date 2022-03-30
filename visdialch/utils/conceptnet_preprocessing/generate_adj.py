@@ -97,7 +97,7 @@ def score_triple(h,rel,t):
     res = (1 + 1 - spatial.distance.cosine(rel, t - h)) / 2
     return res
 
-def concepts2adj(node_ids, original, limit):
+def concepts2adj(node_ids, original, limit, max_nodes = 200):
     """
     Compute the adj list given a set of nodes.
     The adj list will have shape: RxN,E
@@ -158,27 +158,21 @@ def concepts2adj(node_ids, original, limit):
     if extra_nodes:
         new_schema_graph = np.append(new_schema_graph, list(extra_nodes))
     print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
-    # else:
-    #     print("NO EXTRA NODES")
-    # assert original[new_schema_graph[:limit]].all()
-    # save as a sparse coo matrix
-    # adj = coo_matrix(adj.reshape(-1, n_nodes))
 
     adj_list = createAdjList(new_schema_graph, adj_dict)
 
-    # print(new_schema_graph)
-    # for c1 in new_schema_graph:#delete
-    #     print(c1, end = '\t')
-    #     print(id2concept[c1])#delete
+    # pad schema graph
+    new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
+
     print('='*10, '\nmin_score = ', min_score,'\nmax_score = ', max_score,'\n', '='*10)
-    return adj_list, new_schema_graph
+    return adj_list, new_schema_graph, original
 
 def _generateAdj(data_list):
     """
-    Generates adj matrices and also return concepts ids.
+    Find common neighbours in graph and create adjacency list.
     """
     img_id, data = data_list
-    print('img_id = ', img_id)
+
     res = []
     for _round in data: # for each round
         all_concepts = set(_round)
@@ -202,9 +196,9 @@ def _generateAdj(data_list):
         # Get the limit between original and extra nodes
         arange = np.arange(len(schema_graph))
         original_mask = arange < len(all_concepts)
-        adj_list, concepts = concepts2adj(schema_graph, original_mask, len(all_concepts))
+        adj_list, concepts, original_mask = concepts2adj(schema_graph, original_mask, len(all_concepts))
         
-        res.append({'adj_list':adj_list, 'c':concepts, 'original': original_mask, 'limit': int(sum(original_mask))})
+        res.append({'adj_list':adj_list, 'c':concepts, 'original_limit': int(sum(original_mask))})
     
     
     return (img_id, res)
@@ -267,8 +261,8 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
             subgrp = grp.create_group(str(idx))
             subgrp.create_dataset('adj_list', data=_round['adj_list'].astype(np.int64), chunks=True)
             subgrp.create_dataset('concepts', data=_round['c'].astype(np.int64), chunks=True)
-            subgrp.create_dataset('original', data=_round['original'].astype(np.int64), chunks=True)
-            # subgrp.create_dataset('limit', data=_round['limit'], chunks=True)
+            # subgrp.create_dataset('original', data=_round['original'].astype(np.int64), chunks=True)
             # subgrp.create_dataset('shape', data=_round['adj'].shape, chunks=True)
+        grp.create_dataset('original_limit', data=[_round['original_limit'] for _round in v], chunks=True)
     h.close()
     print(f'Adj matrices saved to {output_path}.\n')

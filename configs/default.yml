@@ -33,6 +33,10 @@ dataset:
   caption_round_num: 6
   caption_maxlen_each: 14
 
+  multiple_relations: false
+  num_relations: 17
+  max_nodes: 200
+
 
 # Model related arguments
 model:

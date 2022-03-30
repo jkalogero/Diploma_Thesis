@@ -78,11 +78,20 @@ parser.add_argument(
     "--validate", action="store_true",
     help="Whether to validate on val split after every epoch."
 )
-parser.set_defaults(validate=True)
+parser.set_defaults(validate=False)
 parser.add_argument(
     "--in-memory", action="store_true",
     help="Load the whole dataset and pre-extracted image features in memory. Use only in "
          "presence of large RAM, atleast few tens of GBs."
+)
+parser.add_argument(
+    "--numberbatch", action="store_true",
+    help="Use numberbatch instead of GloVe."
+)
+
+parser.add_argument(
+    "--load-dialog", action="store_true",
+    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
 )
 
 parser.add_argument_group("Checkpointing related arguments")
@@ -95,15 +104,6 @@ parser.add_argument(
     help="To continue training, path to .pth file of saved checkpoint."
 )
 
-parser.add_argument(
-    "--numberbatch", action="store_true",
-    help="Use numberbatch instead of GloVe."
-)
-
-parser.add_argument(
-    "--load-dialog", action="store_true",
-    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
-)
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)

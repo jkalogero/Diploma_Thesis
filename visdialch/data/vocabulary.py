@@ -80,7 +80,7 @@ class Vocabulary(object):
 
     def save(self, save_vocabulary_path: str) -> None:
         with open(save_vocabulary_path, "w") as save_vocabulary_file:
-            json.dump(self.word2index, saved_vocabulary_file)
+            json.dump(self.word2index, save_vocabulary_file)
 
     def __len__(self):
         return len(self.index2word)

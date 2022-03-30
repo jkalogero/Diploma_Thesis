@@ -6,9 +6,9 @@ from torch.nn.functional import normalize
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
-from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader, AdjacencyMatricesReader
+from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader, AdjacencyMatricesReader, AdjacencyListReader
 from visdialch.data.vocabulary import Vocabulary
-
+from collections import Counter
 class VisDialDataset(Dataset):
     """
     A full representation of VisDial v1.0 (train/val/test) dataset. According to the appropriate
@@ -64,7 +64,7 @@ class VisDialDataset(Dataset):
         if overfit:
             self.image_ids = self.image_ids[:5]
         
-        self.adj_reader = AdjacencyMatricesReader(dialogs_adj)
+        self.adj_list_reader = AdjacencyListReader(dialogs_adj)
 
 
     @property
@@ -77,7 +77,6 @@ class VisDialDataset(Dataset):
     def __getitem__(self, index):
         # Get image_id, which serves as a primary key for current instance.
         image_id = self.image_ids[index]
-        print('image_id = ', image_id)
 
         # Get image features for this image_id using hdf reader.
         image_features,image_relation = self.hdf_reader[image_id]
@@ -136,7 +135,8 @@ class VisDialDataset(Dataset):
         )
         
         # external knowledge
-        col, row, shape, concepts = self.adj_reader[image_id]
+        adj_list, concepts, original_limit = self.adj_list_reader[image_id]
+
 
 
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
@@ -154,8 +154,14 @@ class VisDialDataset(Dataset):
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
-        item['concept_ids'], item['adj_lengths'], item['n_rel'], item['adj_list'] = self.load_adj_list(col, row, shape, concepts)
+        
+        item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'])
+        item['adj_list'] = torch.tensor(item['adj_list'])
+        
+        
+        item['concept_ids'] = torch.tensor(concepts).long()
 
+        item['original_limit'] = torch.tensor(original_limit).long()
 
         if self.return_options:
             if self.add_boundary_toks:
@@ -213,7 +219,7 @@ class VisDialDataset(Dataset):
             item["gt_relevance"] = torch.tensor(dense_annotations["gt_relevance"]).float()
             item["round_id"] = torch.tensor(dense_annotations["round_id"]).long()
 
-        print('EXITING GETITEM')
+        # print('EXITING GETITEM')
         return item
 
     def _pad_sequences(self, sequences: List[List[int]]):
@@ -397,7 +403,7 @@ class VisDialDataset(Dataset):
         """
         Add inverse relations, pad matrices and keep max length.
         Return an adjacency list, of the graph, with structure as follows:
-            * n_rows = (2*n_rel+1)*max_nodes
+            * n_rows = (2*n_rel+1)*max_nodes if multiple_relations else max_nodes
             * n_edges (for each node) = max_edge_num
         
         Parameters:
@@ -427,13 +433,14 @@ class VisDialDataset(Dataset):
         concept_ids = torch.zeros((n_rounds, max_node_num), dtype=torch.long)
         # node_type_ids = torch.full((n_rounds, max_node_num), 2, dtype=torch.long)
 
-        adj_list = [[[] for i in range(2*17*max_node_num)] for _ in range(n_rounds)]
+        cnt = 2*17*max_node_num if self.config['multiple_relations'] else 2*max_node_num
+        adj_list = [[[] for _ in range(cnt)] for _ in range(n_rounds)]
 
 
         adj_lengths_ori = adj_lengths.clone()   # get initial adj len
         n_relations = []
         for _round, (_col, _row, _shape, _concepts) in enumerate(zip(col, row, shape, concepts)):
-            
+
             # num of nodes for the graph
             num_concept = min(len(_concepts), max_node_num)
             adj_lengths_ori[_round] = len(_concepts)
@@ -441,38 +448,52 @@ class VisDialDataset(Dataset):
             # select the concepts that will be kept.. if num_concept<max_node_num the rest will stay padded
             concept_ids[_round, :num_concept] = torch.tensor(\
                 np.random.choice(_concepts,num_concept, replace=False) if select_random_nodes\
-                 else _concepts[:num_concept])
+                else _concepts[:num_concept])
 
             adj_lengths[_round] = num_concept
-            # node_type_ids[_round, :num_concept][torch.tensor(qm, dtype=torch.uint8)[:num_concept]] = 0
-            # node_type_ids[_round, :num_concept][torch.tensor(am, dtype=torch.uint8)[:num_concept]] = 1
+
             _row = np.array(_row)
             _col = np.array(_col)
             # _shape is the shape of coo matrix: (RxN, N)
             n_node = _shape[1] #number of nodes
-            # half of the relations, because it is undirected
-            half_n_rel = _shape[0] // n_node
-            # get the coordinates
-            i = _row // n_node # i: number of relation
-            j = _row % n_node # j: number of node
             
-            # keep the edges where both nodes are < max_node_num
-            mask = (j < max_node_num) & (_col < max_node_num)
-            i, j, _col = i[mask], j[mask], _col[mask]
-            # the x+17 relation will be the inverse relation of x
-            i = np.concatenate((i, i + half_n_rel), 0) # add inverse relations
-            j, _col = np.concatenate((j, _col), 0), np.concatenate((_col, j), 0)
-            n_relations.append(2*half_n_rel+1)
+            if self.config['multiple_relations']:
+                # half of the relations, because it is undirected
+                half_n_rel = _shape[0] // n_node
+                # get the coordinates
+                i = _row // n_node # i: number of relation
+                j = _row % n_node # j: number of node
+                
+                # keep the edges where both nodes are < max_node_num
+                mask = (j < max_node_num) & (_col < max_node_num)
+                i, j, _col = i[mask], j[mask], _col[mask]
+                # the x+17 relation will be the inverse relation of x
+                i = np.concatenate((i, i + half_n_rel), 0) # add inverse relations
+                j, _col = np.concatenate((j, _col), 0), np.concatenate((_col, j), 0)
+                n_relations.append(2*half_n_rel+1)
 
-            f_row = i*num_concept +j
-            # buffer.append((f_row[:50], _col[:50]))
-            for (k,l) in zip(f_row, _col):
-                if len(adj_list[_round][k]) < max_edge_num:
-                    adj_list[_round][k].append(l)
+                f_row = i*num_concept +j
+                for (k,l) in zip(f_row, _col):
+                    if len(adj_list[_round][k]) < max_edge_num:
+                        adj_list[_round][k].append(l)
+
+
+            else:
+                _row = _row % n_node
+                mask = (_row < max_node_num) & (_col < max_node_num)
+                _row, _col = _row[mask], _col[mask]
+                _row, _col = np.concatenate((_row, _col), 0), np.concatenate((_col, _row), 0)
+
+                for (k,l) in zip(_row, _col):
+                    if k > max_node_num:
+                        print('k = ', k)
+                    if len(adj_list[_round][k]) < max_edge_num:
+                        adj_list[_round][k].append(l)
 
             # Pad lists to max_edge_num
             for n in range(len(adj_list[_round])):
                 adj_list[_round][n] += [0 for _ in range(max_edge_num-len(adj_list[_round][n]))]
+
 
         # print('| ori_adj_len: {:.2f} | adj_len: {:.2f} |'.format(adj_lengths_ori.float().mean().item(), adj_lengths.float().mean().item()) +
         #     ' prune_rate: {:.2f} |'.format((adj_lengths_ori > adj_lengths).float().mean().item()))
@@ -480,3 +501,33 @@ class VisDialDataset(Dataset):
 
         rel = torch.tensor(n_relations)
         return concept_ids, adj_lengths, rel, torch.tensor(adj_list)
+
+    def merge_relationships(self,adj_list, n_rel, n_nodes, max_edges = 40):
+        """
+        Function that converts multirelational adjacency lists into
+        single relation adjacency lists.
+
+        Returns an adjacency list with shape: (max_nodes, max_edges)
+
+        Parameters:
+        ===========
+
+        adj_list: List[List[List[int]]] shape: (n_rounds, RxV, E)
+            The initial multirelational adjacency list, optionally padded with zeros.
+        
+        n_rel: int
+            The number of relations in the initial graph.
+        
+        n_nodes: int
+            The number of nodes in the graph.
+        """
+        
+        # For each round:
+            # For each node:
+                # Iterate the list starting from the node and with step n_nodes
+                # Keep only non zero elements for each row
+        merged = [[np.pad(r[i::n_nodes][r[i::n_nodes] !=0], (0,max_edges-len(r[i::n_nodes][r[i::n_nodes] !=0]))) \
+            for i in range(n_nodes)]\
+                for r in adj_list]
+                        
+        return merged

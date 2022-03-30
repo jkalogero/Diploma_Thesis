@@ -6,6 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 from visdialch.utils.knowledge_encoding import KnowledgeEncoding
 from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
+from visdialch.utils.gcn import GraphConvolution
 
 class KBGN(nn.Module):
     def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
@@ -65,6 +66,8 @@ class KBGN(nn.Module):
 
         self.dropout = nn.Dropout(p=config["dropout"])
 
+        self.gcn = GraphConvolution(config)
+
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
         self.KnowldgeRetrieval = KnowledgeRetrieval(config)
@@ -74,8 +77,7 @@ class KBGN(nn.Module):
     def forward(self, batch):
         # Get data
         concepts = batch['concept_ids']
-        rel = batch['n_rel']
-        lengths = batch['adj_lengths']
+        original_limit = batch['original_limit']
         adj_list = batch['adj_list']
 
         img = batch["img_feat"]
@@ -84,7 +86,9 @@ class KBGN(nn.Module):
         hist = batch["hist"]
         batch_size, num_rounds, max_sequence_length = ques.size()
         
+        # =============================================================
         # Embed questions
+        # =============================================================
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
         # print("ques.device = ",ques.device)
         ques_embed_emb = self.w_embed(ques)
@@ -95,7 +99,11 @@ class KBGN(nn.Module):
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         # print("ques_embed.shape = ", ques_embed.shape)
         ques_embed = ques_embed.view(batch_size, num_rounds, -1)
+        
+        
+        # =============================================================
         # Embed history
+        # =============================================================
         # print('batch_size= ', batch_size , 'num_rounds = ', num_rounds)
         hist = hist.view(batch_size * num_rounds, max_sequence_length * 2)
         # print("hi.shape = ", hist.shape)
@@ -115,7 +123,15 @@ class KBGN(nn.Module):
         # print("hist_embed.shape = ", hist_embed.shape)
         hist_embed = hist_embed.view(batch_size, num_rounds, -1)
         
-        # construct semantic graph
+
+        # =============================================================
+        # Embed external knowledge nodes
+        # =============================================================
+
+        
+        # =============================================================
+        # Construct semantic graph
+        # =============================================================
         for index, b in enumerate(hist_embed):
             concatenated_history = []
             for i in range(len(b)):
@@ -177,8 +193,7 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        # print()
-
+        # ext_knowledge_emb = self.gcn(adj_list)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage

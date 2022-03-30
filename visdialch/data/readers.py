@@ -412,6 +412,54 @@ class AdjacencyMatricesReader(object):
         return col, row, shape, concepts
 
 
+class AdjacencyListReader(object):
+    """
+    A reader for h5 files containing the adjacency list for
+    every dialog and the mentioned concepts.
+    The H5 files are expected to have the following structure:
+    file
+    |
+    |image_id (group)
+        |-- 0 (group, one for each round)
+        |   |--adj_list (datasets)
+        |   |--concepts (datasets)
+        |   |--original (datasets)
+        |   
+        |
+        .
+        .
+        .
+        |-- 9
+            |--adj_list
+            |--concepts
+            |--original
+            
+    """
+
+    def __init__(self, adj_path:str, in_memory=False):
+        self.adj_path = adj_path
+        # self.len = None
+        # print('before opening adj file')
+        # with h5py.File(self.adj_path, "r") as f:
+        #     self.len = len(list(f.keys()))
+        # print('after opening adj file')
+    
+    def __len__(self):
+        # return self.len
+        raise NotImplementedError
+    
+    def __getitem__(self, image_id: int):
+        adj_list, concepts, original_limit = [], [], []
+        with h5py.File('/home/jkalogero/KBGN-Implementation/data/debug_adj.h5', "r") as f: # CHANGE to self.adj_path
+            for _round in f[str(image_id)].keys():
+                if _round == 'original_limit':
+                    original_limit = np.array(f[str(image_id)][_round])
+                else:
+                    adj_list.append(np.array(f[str(image_id)][_round]['adj_list']))
+                    concepts.append(np.array(f[str(image_id)][_round]['concepts']))
+        return adj_list, concepts, original_limit
+
+
 class PreprocessedDialogsReader(object):
     """
     A simple reader for preprocessed VisDial v1.0 dialog data.
