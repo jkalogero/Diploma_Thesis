@@ -78,6 +78,8 @@ pad_numberbatch_concept_npy = DATA_DIR + 'transe/pad_concept.nb.npy'
 
 transe_ent = DATA_DIR + 'transe/glove.transe.sgd.ent.npy'
 transe_rel = DATA_DIR + 'transe/glove.transe.sgd.rel.npy'
+pad_transe_ent = DATA_DIR + 'transe/pad_glove.transe.sgd.ent.npy'
+pad_transe_rel = DATA_DIR + 'transe/pad_glove.transe.sgd.rel.npy'
 
 grounded = {
     'train': DATA_DIR + 'train_grounded.json',
@@ -343,9 +345,9 @@ def main():
         for split in splits:
             generateAdj(
                 grounded[split],
-                conceptnet_pruned_graph,
-                conceptnet_vocab_file,
-                transe_ent,
+                pad_conceptnet_pruned_graph,
+                pad_conceptnet_vocab_file,
+                pad_transe_ent,
                 transe_rel,
                 args.prune_threshold,
                 sub_graphs_adj[split]

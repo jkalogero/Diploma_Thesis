@@ -7,6 +7,7 @@ dataset:
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
   transe: 'data/transe/glove.transe.sgd.ent.npy'
+  ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/ext_vocab.json'
   numberbatch: 'data/transe/concept.nb.npy'
   numberbatchpath: 'data/transe/numberbatch-en-19.08.txt'
   elmo_visdial_path: 'data/elmo_visdial.json.npy'
