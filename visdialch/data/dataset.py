@@ -527,7 +527,7 @@ class VisDialDataset(Dataset):
                 # Iterate the list starting from the node and with step n_nodes
                 # Keep only non zero elements for each row
                 # Pad the result
-        merged = [[np.pad(r[i::n_nodes][r[i::n_nodes] !=0], (0,max_edges-len(r[i::n_nodes][r[i::n_nodes] !=0]))) \
+        merged = [[np.pad(r[i::n_nodes][r[i::n_nodes] !=0][:max_edges], (0,max_edges-len(r[i::n_nodes][r[i::n_nodes] !=0][:max_edges]))) \
             for i in range(n_nodes)]\
                 for r in adj_list]
                         
