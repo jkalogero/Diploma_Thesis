@@ -162,10 +162,10 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
         new_schema_graph = np.append(new_schema_graph, list(extra_nodes))
     print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
 
+    # pad schema graph - FIRST PAD AND THEN CREATE ADJ LIST BASED ON THE PADDED SCHEMA GRAPH
+    new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
     adj_list = createAdjList(new_schema_graph, adj_dict)
 
-    # pad schema graph
-    new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
 
     print('='*10, '\nmin_score = ', min_score,'\nmax_score = ', max_score,'\n', '='*10)
     return adj_list, new_schema_graph, original

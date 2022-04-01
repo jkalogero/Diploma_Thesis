@@ -214,8 +214,8 @@ decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
-# if -1 not in args.gpu_ids:
-#     model = nn.DataParallel(model, args.gpu_ids)
+if -1 not in args.gpu_ids:
+    model = nn.DataParallel(model, args.gpu_ids)
 
 
 # Loss function.
