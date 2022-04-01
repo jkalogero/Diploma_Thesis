@@ -8,7 +8,7 @@ testing_geometric.py
 *_file
 *log
 *err
-KBGN-Implementation/data
+data
 prep_err
 prep_log
 combine_files.py

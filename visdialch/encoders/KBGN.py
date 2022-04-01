@@ -9,22 +9,37 @@ from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 from visdialch.utils.gcn import GraphConvolution
 
 class KBGN(nn.Module):
-    def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
+    def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, numberbatch):
         """
         Parameters:
         ===========
-        embedding: glove || numberbatch
+        config:
+            The configuration file.
+
+        vocabulary:
+            The vocabulary extracted from the visdial dataset.
+        
+        ext_graph_vocabulary:
+            The vocabulary extracted from the external knowledge nodes.
+
+        glove:
+            The glove embeddings used for initization.
+
+        elmo:
+            The elmo embeddings used for initization.
+
+        numberbatch:
+            The numberbatch embeddings used for initization.
 
         """
         super(KBGN, self).__init__()
         self.config = config
-        
-        emb_size = "numberbatch_embedding_size" if numberbatch else "glove_embedding_size"
+         
 
-        self.w_embed = nn.Embedding(
-            len(vocabulary), config[emb_size]
+        self.glove_embed = nn.Embedding(
+            len(vocabulary), config["glove_embedding_size"]
         )
-        self.w_embed.weight.data = embedding
+        self.glove_embed.weight.data = glove
         
         # self.numberbatch_embed = nn.Embedding(len(vocabulary), config["numberbatch_embedding_size"])
         # self.numberbatch_embed.weight.data.copy_(embedding)
@@ -43,7 +58,7 @@ class KBGN(nn.Module):
 
 
         self.q_rnn = nn.LSTM(
-            config[emb_size] + config["word_embedding_size"],
+            config["glove_embedding_size"] + config["word_embedding_size"],
             # config["glove_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
@@ -55,7 +70,7 @@ class KBGN(nn.Module):
         self.q_rnn = DynamicRNN(self.q_rnn)
 
         self.hist_rnn = nn.LSTM(
-            config[emb_size] + config["word_embedding_size"],
+            config["glove_embedding_size"] + config["word_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
             batch_first=True,
@@ -65,6 +80,13 @@ class KBGN(nn.Module):
         self.hist_rnn = DynamicRNN(self.hist_rnn)
 
         self.dropout = nn.Dropout(p=config["dropout"])
+
+        # External Knowledge Graph initial node embeddings
+        self.numb_embed = nn.Embedding(
+            len(ext_graph_vocabulary), config["numberbatch_embedding_size"]
+        )
+        print('len(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
+        self.numb_embed.weight.data = numberbatch
 
         self.gcn = GraphConvolution(config)
 
@@ -90,8 +112,9 @@ class KBGN(nn.Module):
         # Embed questions
         # =============================================================
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
+        print('ques[0] = ', ques[0])
         # print("ques.device = ",ques.device)
-        ques_embed_emb = self.w_embed(ques)
+        ques_embed_emb = self.glove_embed(ques)
         ques_embed_elmo = self.elmo_embed(ques)
         ques_embed_elmo = self.dropout(ques_embed_elmo)
         ques_embed_elmo = self.embed_change(ques_embed_elmo)
@@ -108,7 +131,7 @@ class KBGN(nn.Module):
         hist = hist.view(batch_size * num_rounds, max_sequence_length * 2)
         # print("hi.shape = ", hist.shape)
 
-        hist_embed_emb = self.w_embed(hist)
+        hist_embed_emb = self.glove_embed(hist)
         # hist_embed_emb = self.dropout(hist_embed_emb) # delete
         hist_embed_elmo = self.elmo_embed(hist)
         hist_embed_elmo = self.dropout(hist_embed_elmo)
@@ -127,7 +150,9 @@ class KBGN(nn.Module):
         # =============================================================
         # Embed external knowledge nodes
         # =============================================================
-
+        print('adj_list.shape = ', adj_list.shape)
+        adj_list_emb = self.numb_embed(adj_list)
+        print('adj_list_emb.shape = ', adj_list_emb.shape)
         
         # =============================================================
         # Construct semantic graph

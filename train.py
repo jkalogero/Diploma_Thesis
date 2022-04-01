@@ -123,7 +123,9 @@ config = yaml.load(open(args.config_yml))
 if isinstance(args.gpu_ids, int): 
     args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+# device = torch.device("cpu")
 torch.cuda.set_device(device)
+# CUDA_LAUNCH_BLOCKING=1
 
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
@@ -180,37 +182,40 @@ dataset_vocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
 # Read GloVe word embedding data
-if not args.numberbatch:
-    glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
-
-else:
-    numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(dataset_vocabulary), -1)
+glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
 # Read ELMo word embedding data
 elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
+ext_graph_vocabulary = Vocabulary(
+    config["dataset"]["ext_word_counts_json"], min_count=0
+)
+numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
 
 # Pass vocabulary to construct Embedding layer.
-if not args.numberbatch:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder.w_embed = encoder.w_embed
-else:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder.w_embed = encoder.w_embed
+# if not args.numberbatch:
+print('\n\nlen(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
+encoder = Encoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
+decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+# decoder = Decoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
+# decoder.w_embed = encoder.w_embed
+# else:
+#     encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+#     decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+#     decoder.w_embed = encoder.w_embed
 
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Share word embedding between encoder and decoder.
 decoder.elmo_embed = encoder.elmo_embed
+decoder.glove_embed = encoder.glove_embed
 decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
-if -1 not in args.gpu_ids:
-    model = nn.DataParallel(model, args.gpu_ids)
+# if -1 not in args.gpu_ids:
+#     model = nn.DataParallel(model, args.gpu_ids)
 
 
 # Loss function.
