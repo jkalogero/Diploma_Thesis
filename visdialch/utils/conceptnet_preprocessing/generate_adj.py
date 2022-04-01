@@ -41,6 +41,9 @@ def load_cpnet(cpnet_graph_path):
 
 def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=17, add_inverse=True, add_padding=True):
     """
+    The adjacency list will have shape: (num_rel x max_nodes,max_edges), or (2xnum_rel x max_nodes,max_edges)
+    if add_inverse = True.
+    For each node, its list contains the index of the neighbouring node in schema_graph.
 
     Parameters:
     ===========
@@ -74,13 +77,13 @@ def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=
         for neighbour in adj_dict[node]:
             i = neighbour[0]*n_nodes + idx
             if len(adj_list[i]) < max_edges:
-                adj_list[i].append(neighbour[1])
+                adj_list[i].append(_schema[neighbour[1]])
 
             if add_inverse:
                 # id of inverse relation of r: r + num_rel
                 i_reverse = _schema[neighbour[1]]+(neighbour[0]+num_rel)*n_nodes
                 if len(adj_list[i_reverse]) < max_edges:
-                    adj_list[i_reverse].append(node)
+                    adj_list[i_reverse].append(_schema[node])
 
     # padding
     if add_padding:

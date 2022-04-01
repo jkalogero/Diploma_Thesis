@@ -7,9 +7,10 @@ from tqdm import tqdm
 import json
 
 # For the VisDial Vocabulary there were:
-#   118 OOV for GloVe embeddings
+#   188 OOV for GloVe embeddings
 #   0 OOV for ELMo embeddings
 #   611 OOV for Numberbatch embeddings on visdial vocabulary
+#   7 OOV for Numberbatch embeddings on ext knowledge graph nodes
 
 username = getpass.getuser()
 DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
@@ -59,14 +60,15 @@ def main():
     ext_knowledge_dataset_vocabulary = Vocabulary(
         config["dataset"]["ext_word_counts_json"], 
         min_count=0)
+
     emb_path_list = [
         (config["dataset"]["glovepath"], DATA_DIR+'glove_visdial.json', 'glove'),
         (config["dataset"]["elmopath"], DATA_DIR+'elmo_visdial.json', 'elmo'),
         (config["dataset"]["numberbatchpath"], DATA_DIR+'numberbatch_visdial.json', 'numberbatch')]
-    for (pth, name, is_numb) in tqdm(emb_path_list):
-        if is_numb:
-            embeddings2npy(pth, name, ext_knowledge_dataset_vocabulary, is_numb)    
+    for (pth, name, emb_name) in tqdm(emb_path_list):
+        if emb_name == 'numberbatch':
+            embeddings2npy(pth, name, ext_knowledge_dataset_vocabulary, emb_name)    
         else:
-            embeddings2npy(pth, name, dataset_vocabulary, is_numb)
+            embeddings2npy(pth, name, dataset_vocabulary, emb_name)
 if __name__ == '__main__':
     main()
