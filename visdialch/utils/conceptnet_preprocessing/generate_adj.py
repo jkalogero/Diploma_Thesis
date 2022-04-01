@@ -106,7 +106,7 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
     The adj list will have shape: RxN,E
     """
     global id2relation, relation_embs, concept_embs, threshold
-    print('THRESHOLD = ', threshold)
+
     # print("\n\nSCHEMA GRAPH: ", len(node_ids), ' nodes') #delete
     
     
@@ -128,9 +128,9 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
     
     # adj_dict has c_id (source) as key and a list of tuples (rel_id, c_id (target)) as value
     adj_dict = defaultdict(list)
-    cnt = 0
-    min_score = 10
-    max_score = -10
+    # cnt = 0
+    # min_score = 10
+    # max_score = -10
     for s in range(n_nodes):
         for t in range(n_nodes): # for each pair of nodes in initial schema graph
             if original[s] or original[t]:
@@ -144,11 +144,11 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
                             if score > threshold or (original[s] and original[t]):
                             # if score > threshold:
                                 adj_dict[s_c].append((e_attr['rel'],t_c))
-                                min_score = min(min_score, score)
-                                max_score = max(max_score, score)
+                                # min_score = min(min_score, score)
+                                # max_score = max(max_score, score)
                                 # adj[e_attr['rel']][s][t] = 1
-                                print(id2concept[s_c], ' --> ', id2relation[e_attr['rel']], ' --> ', id2concept[t_c], '| score = ', score)
-                                cnt +=1
+                                # print(id2concept[s_c], ' --> ', id2relation[e_attr['rel']], ' --> ', id2concept[t_c], '| score = ', score)
+                                # cnt +=1
                                 # if not originals add ot extra nodes set
                                 if s_c not in new_schema_graph_set:
                                     extra_nodes.add(s_c)
@@ -156,18 +156,18 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
                                     extra_nodes.add(t_c)
 
     # cids += 1  # note!!! index 0 is reserved for padding
-    or_len = len(new_schema_graph)
-    print("\n\nORIGINAL SCHEMA GRAPH: ", or_len, ' nodes', end='\t') #delete
+    # or_len = len(new_schema_graph)
+    # print("\n\nORIGINAL SCHEMA GRAPH: ", or_len, ' nodes', end='\t') #delete
     if extra_nodes:
         new_schema_graph = np.append(new_schema_graph, list(extra_nodes))
-    print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
+    # print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
 
     # pad schema graph - FIRST PAD AND THEN CREATE ADJ LIST BASED ON THE PADDED SCHEMA GRAPH
     new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
     adj_list = createAdjList(new_schema_graph, adj_dict)
 
 
-    print('='*10, '\nmin_score = ', min_score,'\nmax_score = ', max_score,'\n', '='*10)
+    # print('='*10, '\nmin_score = ', min_score,'\nmax_score = ', max_score,'\n', '='*10)
     return adj_list, new_schema_graph, original
 
 def _generateAdj(data_list):
@@ -238,11 +238,11 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
     # data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
     #     for img_id, dialog in grounded_concepts.items()][:1]
     
-    sample = ['378466', '332243', '378461', '287140', '575029']
+    # sample = ['378466', '332243', '378461', '287140', '575029']
     data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
-        for img_id, dialog in grounded_concepts.items() if img_id in sample]
+        for img_id, dialog in grounded_concepts.items()]
     
-    print('data_list = ', data_list)
+    # print('data_list = ', data_list)
 
     print("Will load cpnet.")
     load_cpnet(cpnet_graph_path)
@@ -253,9 +253,7 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
     with Pool() as p:
         res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,80), total=len(grounded_concepts), desc='Generating adj matrices..')}
     
-    print('res.keys() = ', res.keys())
-    # with open(output_path, 'wb') as fout:
-    #     pickle.dump(res, fout)
+
     h = h5py.File(output_path)
     for k,v in tqdm(res.items()):
         print('Creating group for image: ', k)

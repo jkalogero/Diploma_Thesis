@@ -106,9 +106,9 @@ pruned_concepts_paths = {
 }
 
 sub_graphs_adj = {
-    'train': DATA_DIR + 'adj_train_paths.pk',
-    'val': DATA_DIR + 'adj_val_paths.pk',
-    'test': DATA_DIR + 'adj_test_paths.pk'
+    'train': DATA_DIR + 'train_adj_list.h5',
+    'val': DATA_DIR + 'val_adj_list.h5',
+    'test': DATA_DIR + 'test_adj_list.h5'
 }
 
 def files_exist(files: List):
@@ -226,9 +226,17 @@ def main():
         '--prune_threshold', 
         action="store_true",
         default=0.66,
-        help='Use only a 5 examples, for debugging reasons.')
+        help='Threshold for pruning edges.')
+
+    parser.add_argument(
+        '--n', default='0',
+        help='Number of grounded file.')
 
     args = parser.parse_args()
+
+    if args.n != '0':
+        grounded['train'] = DATA_DIR + 'train_grounded_part_'+str(args.n)+'.json'
+        sub_graphs_adj['train'] = DATA_DIR + 'train_adj_list_part_'+str(args.n)+'.h5'
 
     # Print args.
     for arg in vars(args):
@@ -284,7 +292,7 @@ def main():
     # Preprocess dataset files.
     # ==================================================================================
     # Tokenize and create files with keys the image_id
-    if not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear:
+    if (not files_exist([dataset_tokenized_paths[split] for split in splits]) or args.clear) and False:
         for split in splits:
             tokenizeDatasetFile(
                     dataset_paths[split], 
