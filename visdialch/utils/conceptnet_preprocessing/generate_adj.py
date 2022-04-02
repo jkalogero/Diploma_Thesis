@@ -100,6 +100,10 @@ def score_triple(h,rel,t):
     res = (1 + 1 - spatial.distance.cosine(rel, t - h)) / 2
     return res
 
+
+def newNode(node, original_nodes, extra_nodes):
+    return (node not in original_nodes) and (node not in extra_nodes)
+
 def concepts2adj(node_ids, original, limit, max_nodes = 200):
     """
     Compute the adj list given a set of nodes.
@@ -142,18 +146,20 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
                             score = score_triple(concept_embs[s_c], relation_embs[e_attr['rel']], concept_embs[t_c])
                             # if over the threshold or both original nodes
                             if score > threshold or (original[s] and original[t]):
-                            # if score > threshold:
-                                adj_dict[s_c].append((e_attr['rel'],t_c))
-                                # min_score = min(min_score, score)
-                                # max_score = max(max_score, score)
-                                # adj[e_attr['rel']][s][t] = 1
-                                # print(id2concept[s_c], ' --> ', id2relation[e_attr['rel']], ' --> ', id2concept[t_c], '| score = ', score)
-                                # cnt +=1
-                                # if not originals add ot extra nodes set
-                                if s_c not in new_schema_graph_set:
-                                    extra_nodes.add(s_c)
-                                if t_c not in new_schema_graph_set:
-                                    extra_nodes.add(t_c)
+                                # skip if new node occurs but the upper limit of nodes is reached
+                                if not ((newNode(s_c, new_schema_graph_set, extra_nodes) or newNode(t_c, new_schema_graph_set, extra_nodes)) and (len(extra_nodes) >= max_nodes - len(new_schema_graph_set))):
+                                    # if not originals add to extra nodes set
+                                    if s_c not in new_schema_graph_set:
+                                        extra_nodes.add(s_c)
+                                    if t_c not in new_schema_graph_set:
+                                        extra_nodes.add(t_c)
+                                    
+                                    adj_dict[s_c].append((e_attr['rel'],t_c))
+                                    # min_score = min(min_score, score)
+                                    # max_score = max(max_score, score)
+                                    # adj[e_attr['rel']][s][t] = 1
+                                    # print(id2concept[s_c], ' --> ', id2relation[e_attr['rel']], ' --> ', id2concept[t_c], '| score = ', score)
+                                    # cnt +=1
 
     # cids += 1  # note!!! index 0 is reserved for padding
     # or_len = len(new_schema_graph)
@@ -162,7 +168,8 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
         new_schema_graph = np.append(new_schema_graph, list(extra_nodes))
     # print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
 
-    # pad schema graph - FIRST PAD AND THEN CREATE ADJ LIST BASED ON THE PADDED SCHEMA GRAPH
+    # pad schema graph - FIRST SLICE AND PAD AND THEN CREATE ADJ LIST BASED ON THE PADDED SCHEMA GRAPH
+    new_schema_graph = new_schema_graph[:max_nodes]
     new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
     adj_list = createAdjList(new_schema_graph, adj_dict)
 
