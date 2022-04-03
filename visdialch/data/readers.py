@@ -450,7 +450,7 @@ class AdjacencyListReader(object):
     
     def __getitem__(self, image_id: int):
         adj_list, concepts, original_limit = [], [], []
-        with h5py.File('/home/jkalogero/KBGN-Implementation/data/debug_adj.h5', "r") as f: # CHANGE to self.adj_path
+        with h5py.File(self.adj_path, "r") as f:
             for _round in f[str(image_id)].keys():
                 if _round == 'original_limit':
                     original_limit = np.array(f[str(image_id)][_round])

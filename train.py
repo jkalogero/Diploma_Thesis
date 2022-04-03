@@ -45,7 +45,7 @@ parser.add_argument(
     help="Path to json file containing VisDial v1.0 validation dense ground truth annotations."
 )
 parser.add_argument(
-    "--adj-train-h5", default="data/chunked_adj_train_paths.h5",
+    "--adj-train-h5", default="data/train_adj_list.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(

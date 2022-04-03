@@ -74,6 +74,8 @@ model:
   ques_change_num: 256
   caption_change_num: 256
 
+  num_relations: 17
+
 
 # Optimization related arguments
 solver:
