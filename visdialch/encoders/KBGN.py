@@ -88,7 +88,7 @@ class KBGN(nn.Module):
         print('len(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
         self.numb_embed.weight.data = numberbatch
 
-        self.gcn = GraphConvolution(config)
+        # self.gnn = GraphConvolution(config) if not config['num_relations'] else 
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
@@ -112,8 +112,6 @@ class KBGN(nn.Module):
         # Embed questions
         # =============================================================
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
-        print('ques[0] = ', ques[0])
-        # print("ques.device = ",ques.device)
         ques_embed_emb = self.glove_embed(ques)
         ques_embed_elmo = self.elmo_embed(ques)
         ques_embed_elmo = self.dropout(ques_embed_elmo)
@@ -122,6 +120,7 @@ class KBGN(nn.Module):
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         # print("ques_embed.shape = ", ques_embed.shape)
         ques_embed = ques_embed.view(batch_size, num_rounds, -1)
+        print('ques_embed.shape = ', ques_embed.shape)
         
         
         # =============================================================
@@ -152,7 +151,7 @@ class KBGN(nn.Module):
         # =============================================================
         print('adj_list.shape = ', adj_list.shape)
         adj_list_emb = self.numb_embed(adj_list)
-        print('adj_list_emb.shape = ', adj_list_emb.shape)
+        # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
         
         # =============================================================
         # Construct semantic graph
@@ -218,7 +217,7 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        # ext_knowledge_emb = self.gcn(adj_list)
+        # ext_knowledge_emb = self.gcn(adj_list_emb)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage
