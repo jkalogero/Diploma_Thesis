@@ -3,13 +3,21 @@ dataset:
   image_features_train_h5: 'data/train.h5'
   image_features_val_h5: 'data/val.h5'
   image_features_test_h5: 'data/test.h5'
+
   word_counts_json: 'data/visdial_1.0_word_counts_train.json'
+  ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/ext_vocab.json'
+
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
   numberbatchpath: 'data/transe/numberbatch-en-19.08.txt'
+
+  transe: 'data/transe/glove.transe.sgd.ent.npy'
+  numberbatch: 'data/transe/concept.nb.npy'
+
   elmo_visdial_path: 'data/elmo_visdial.json.npy'
   glove_visdial_path: 'data/glove_visdial.json.npy'
   numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
+  
   tokenized_questions_train: 'data/tokenized_questions_train.json'
   tokenized_answers_train: 'data/tokenized_answers_train.json'
   tokenized_captions_train: 'data/tokenized_captions_train.json'
@@ -31,6 +39,10 @@ dataset:
   caption_round_num: 6
   caption_maxlen_each: 14
 
+  multiple_relations: false
+  num_relations: 17
+  max_nodes: 200
+
 
 # Model related arguments
 model:
@@ -42,6 +54,9 @@ model:
   lstm_hidden_size: 512
   lstm_num_layers: 2
   dropout: 0.5
+  # ext_dropout: 0.5
+  numberbatch_dim: 300
+  transe_dim: 100
 
   glove_embedding_size: 300
   elmo_embedding_size: 1024
@@ -58,6 +73,8 @@ model:
 
   ques_change_num: 256
   caption_change_num: 256
+
+  num_relations: 17
 
 
 # Optimization related arguments

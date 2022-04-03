@@ -124,7 +124,7 @@ if args.split == "val":
         overfit=args.overfit,
         in_memory=args.in_memory,
         num_workers=args.cpu_workers,
-        return_options=True,
+        return_options=True if config["model"]["decoder"] == "disc" else False,
         add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
         # load_dialog = args.load_dialog
     )
@@ -135,7 +135,7 @@ else:
         overfit=args.overfit, 
         in_memory=args.in_memory,
         num_workers=args.cpu_workers,
-        return_options=True,
+        return_options=True if config["model"]["decoder"] == "disc" else False,
         add_boundary_toks=False if config["model"]["decoder"] == "disc" else True
         # load_dialog = args.load_dialog
     )

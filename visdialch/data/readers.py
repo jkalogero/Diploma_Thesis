@@ -20,6 +20,7 @@ import multiprocessing as mp
 from typing import Any, Dict, List, Optional, Set, Union
 
 import h5py
+import numpy as np
 
 # A bit slow, and just splits sentences to list of words, can be doable in
 # `DialogsReader`.
@@ -312,6 +313,10 @@ class ImageFeaturesHdfReader(object):
     """
 
     def __init__(self, features_hdfpath: str, in_memory: bool = False):
+        """
+        Get path, _in_memory, _image_id_list and 
+        initialize features and relations lists.
+        """
         self.features_hdfpath = features_hdfpath
         self._in_memory = in_memory
 
@@ -356,6 +361,103 @@ class ImageFeaturesHdfReader(object):
     def split(self):
         return self._split
 
+class AdjacencyMatricesReader(object):
+    """
+    A reader for pickle files containing the adjacency matrix for
+    every dialog and the mentioned concepts.
+    The H5 files are expected to have the following structure:
+    file
+    |
+    |image_id (group)
+        |-- 0 (group, one for each round)
+        |   |--row (datasets)
+        |   |--col (datasets)
+        |   |--data (datasets)
+        |   |--shape (datasets)
+        |   |--concepts (datasets)
+        |
+        .
+        .
+        .
+        |-- 9
+            |--row
+            |--col
+            |--data
+            |--shape
+            |--concepts
+    """
+
+    def __init__(self, adj_path:str, in_memory=False):
+        self.adj_path = adj_path
+        # self.len = None
+        # print('before opening adj file')
+        # with h5py.File(self.adj_path, "r") as f:
+        #     self.len = len(list(f.keys()))
+        # print('after opening adj file')
+    
+    def __len__(self):
+        # return self.len
+        raise NotImplementedError
+    
+    def __getitem__(self, image_id: int):
+        col, row, shape, concepts = [], [], [], []
+        with h5py.File(self.adj_path, "r") as f:
+            for _round in f[str(image_id)].keys():
+                # d.append(list(f[str(image_id)][_round]))
+                col.append(np.array(f[str(image_id)][_round]['col']))
+                row.append(np.array(f[str(image_id)][_round]['row']))
+                # data.append(np.array(f[str(image_id)][_round]['data']))
+                shape.append(np.array(f[str(image_id)][_round]['shape']))
+                concepts.append(np.array(f[str(image_id)][_round]['concepts']))
+        return col, row, shape, concepts
+
+
+class AdjacencyListReader(object):
+    """
+    A reader for h5 files containing the adjacency list for
+    every dialog and the mentioned concepts.
+    The H5 files are expected to have the following structure:
+    file
+    |
+    |image_id (group)
+        |-- 0 (group, one for each round)
+        |   |--adj_list (datasets)
+        |   |--concepts (datasets)
+        |   |--original (datasets)
+        |   
+        |
+        .
+        .
+        .
+        |-- 9
+            |--adj_list
+            |--concepts
+            |--original
+            
+    """
+
+    def __init__(self, adj_path:str, in_memory=False):
+        self.adj_path = adj_path
+        # self.len = None
+        # print('before opening adj file')
+        # with h5py.File(self.adj_path, "r") as f:
+        #     self.len = len(list(f.keys()))
+        # print('after opening adj file')
+    
+    def __len__(self):
+        # return self.len
+        raise NotImplementedError
+    
+    def __getitem__(self, image_id: int):
+        adj_list, concepts, original_limit = [], [], []
+        with h5py.File(self.adj_path, "r") as f:
+            for _round in f[str(image_id)].keys():
+                if _round == 'original_limit':
+                    original_limit = np.array(f[str(image_id)][_round])
+                else:
+                    adj_list.append(np.array(f[str(image_id)][_round]['adj_list']))
+                    concepts.append(np.array(f[str(image_id)][_round]['concepts']))
+        return adj_list, concepts, original_limit
 
 
 class PreprocessedDialogsReader(object):

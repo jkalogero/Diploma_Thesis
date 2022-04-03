@@ -6,24 +6,40 @@ from torch.nn.utils.rnn import pad_sequence
 from visdialch.utils.knowledge_encoding import KnowledgeEncoding
 from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
+from visdialch.utils.gcn import GraphConvolution
 
 class KBGN(nn.Module):
-    def __init__(self, config, vocabulary, embedding, elmo, numberbatch):
+    def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, numberbatch):
         """
         Parameters:
         ===========
-        embedding: glove || numberbatch
+        config:
+            The configuration file.
+
+        vocabulary:
+            The vocabulary extracted from the visdial dataset.
+        
+        ext_graph_vocabulary:
+            The vocabulary extracted from the external knowledge nodes.
+
+        glove:
+            The glove embeddings used for initization.
+
+        elmo:
+            The elmo embeddings used for initization.
+
+        numberbatch:
+            The numberbatch embeddings used for initization.
 
         """
         super(KBGN, self).__init__()
         self.config = config
-        
-        emb_size = "numberbatch_embedding_size" if numberbatch else "glove_embedding_size"
+         
 
-        self.w_embed = nn.Embedding(
-            len(vocabulary), config[emb_size]
+        self.glove_embed = nn.Embedding(
+            len(vocabulary), config["glove_embedding_size"]
         )
-        self.w_embed.weight.data = embedding
+        self.glove_embed.weight.data = glove
         
         # self.numberbatch_embed = nn.Embedding(len(vocabulary), config["numberbatch_embedding_size"])
         # self.numberbatch_embed.weight.data.copy_(embedding)
@@ -42,7 +58,7 @@ class KBGN(nn.Module):
 
 
         self.q_rnn = nn.LSTM(
-            config[emb_size] + config["word_embedding_size"],
+            config["glove_embedding_size"] + config["word_embedding_size"],
             # config["glove_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
@@ -54,7 +70,7 @@ class KBGN(nn.Module):
         self.q_rnn = DynamicRNN(self.q_rnn)
 
         self.hist_rnn = nn.LSTM(
-            config[emb_size] + config["word_embedding_size"],
+            config["glove_embedding_size"] + config["word_embedding_size"],
             config["lstm_hidden_size"],
             config["lstm_num_layers"],
             batch_first=True,
@@ -65,6 +81,15 @@ class KBGN(nn.Module):
 
         self.dropout = nn.Dropout(p=config["dropout"])
 
+        # External Knowledge Graph initial node embeddings
+        self.numb_embed = nn.Embedding(
+            len(ext_graph_vocabulary), config["numberbatch_embedding_size"]
+        )
+        print('len(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
+        self.numb_embed.weight.data = numberbatch
+
+        # self.gnn = GraphConvolution(config) if not config['num_relations'] else 
+
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
         self.KnowldgeRetrieval = KnowledgeRetrieval(config)
@@ -73,6 +98,9 @@ class KBGN(nn.Module):
 
     def forward(self, batch):
         # Get data
+        concepts = batch['concept_ids']
+        original_limit = batch['original_limit']
+        adj_list = batch['adj_list']
 
         img = batch["img_feat"]
         v_relations = batch["relations"]
@@ -80,10 +108,11 @@ class KBGN(nn.Module):
         hist = batch["hist"]
         batch_size, num_rounds, max_sequence_length = ques.size()
         
+        # =============================================================
         # Embed questions
+        # =============================================================
         ques = ques.view(batch_size * num_rounds, max_sequence_length)
-        # print("ques.device = ",ques.device)
-        ques_embed_emb = self.w_embed(ques)
+        ques_embed_emb = self.glove_embed(ques)
         ques_embed_elmo = self.elmo_embed(ques)
         ques_embed_elmo = self.dropout(ques_embed_elmo)
         ques_embed_elmo = self.embed_change(ques_embed_elmo)
@@ -91,12 +120,17 @@ class KBGN(nn.Module):
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         # print("ques_embed.shape = ", ques_embed.shape)
         ques_embed = ques_embed.view(batch_size, num_rounds, -1)
+        print('ques_embed.shape = ', ques_embed.shape)
+        
+        
+        # =============================================================
         # Embed history
+        # =============================================================
         # print('batch_size= ', batch_size , 'num_rounds = ', num_rounds)
         hist = hist.view(batch_size * num_rounds, max_sequence_length * 2)
         # print("hi.shape = ", hist.shape)
 
-        hist_embed_emb = self.w_embed(hist)
+        hist_embed_emb = self.glove_embed(hist)
         # hist_embed_emb = self.dropout(hist_embed_emb) # delete
         hist_embed_elmo = self.elmo_embed(hist)
         hist_embed_elmo = self.dropout(hist_embed_elmo)
@@ -111,7 +145,17 @@ class KBGN(nn.Module):
         # print("hist_embed.shape = ", hist_embed.shape)
         hist_embed = hist_embed.view(batch_size, num_rounds, -1)
         
-        # construct semantic graph
+
+        # =============================================================
+        # Embed external knowledge nodes
+        # =============================================================
+        print('adj_list.shape = ', adj_list.shape)
+        adj_list_emb = self.numb_embed(adj_list)
+        # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
+        
+        # =============================================================
+        # Construct semantic graph
+        # =============================================================
         for index, b in enumerate(hist_embed):
             concatenated_history = []
             for i in range(len(b)):
@@ -173,8 +217,7 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        # print()
-
+        # ext_knowledge_emb = self.gcn(adj_list_emb)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage

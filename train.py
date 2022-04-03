@@ -12,6 +12,7 @@ from bisect import bisect
 from numpy import random
 import numpy as np
 from visdialch.data.dataset import VisDialDataset
+
 from torch.utils.data import DataLoader
 from visdialch.encoders import Encoder
 from visdialch.decoders import Decoder
@@ -21,6 +22,10 @@ from visdialch.utils.checkpointing import CheckpointManager, load_checkpoint
 from visdialch.data.vocabulary import Vocabulary
 
 import json
+
+# import torch.multiprocessing
+# torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -40,8 +45,16 @@ parser.add_argument(
     help="Path to json file containing VisDial v1.0 validation dense ground truth annotations."
 )
 parser.add_argument(
-    "--captions-train-json", default="data/train2018.json",
-    help="Path to json file containing VisDial v1.0 training captions data."
+    "--adj-train-h5", default="data/train_adj_list.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
+parser.add_argument(
+    "--adj-val-h5", default="data/adj_val_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
+parser.add_argument(
+    "--adj-test-h5", default="data/adj_test_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(
     "--captions-val-json", default="data/val2018.json",
@@ -65,11 +78,20 @@ parser.add_argument(
     "--validate", action="store_true",
     help="Whether to validate on val split after every epoch."
 )
-parser.set_defaults(validate=True)
+parser.set_defaults(validate=False)
 parser.add_argument(
     "--in-memory", action="store_true",
     help="Load the whole dataset and pre-extracted image features in memory. Use only in "
          "presence of large RAM, atleast few tens of GBs."
+)
+parser.add_argument(
+    "--numberbatch", action="store_true",
+    help="Use numberbatch instead of GloVe."
+)
+
+parser.add_argument(
+    "--load-dialog", action="store_true",
+    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
 )
 
 parser.add_argument_group("Checkpointing related arguments")
@@ -82,15 +104,6 @@ parser.add_argument(
     help="To continue training, path to .pth file of saved checkpoint."
 )
 
-parser.add_argument(
-    "--numberbatch", action="store_true",
-    help="Use numberbatch instead of GloVe."
-)
-
-parser.add_argument(
-    "--load-dialog", action="store_true",
-    help="Load preprocessed the dialog. Else preprocess it in __init__ and __getitem__ of dataset."
-)
 
 # for reproducibility - refer https://pytorch.org/docs/stable/notes/randomness.html
 torch.manual_seed(0)
@@ -110,7 +123,9 @@ config = yaml.load(open(args.config_yml))
 if isinstance(args.gpu_ids, int): 
     args.gpu_ids = [args.gpu_ids]
 device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+# device = torch.device("cpu")
 torch.cuda.set_device(device)
+# CUDA_LAUNCH_BLOCKING=1
 
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
@@ -128,7 +143,8 @@ for arg in vars(args):
 
 train_dataset = VisDialDataset(
     config["dataset"], 
-    args.train_json, 
+    args.train_json,
+    args.adj_train_h5,
     overfit=args.overfit, 
     in_memory=args.in_memory,
     num_workers=args.cpu_workers,
@@ -145,7 +161,8 @@ train_dataloader = DataLoader(
 
 val_dataset = VisDialDataset(
     config["dataset"], 
-    args.val_json, 
+    args.val_json,
+    args.adj_val_h5,
     dense_annotations_jsonpath=args.val_dense_json, 
     overfit=args.overfit,
     in_memory=args.in_memory,
@@ -165,31 +182,34 @@ dataset_vocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
 # Read GloVe word embedding data
-if not args.numberbatch:
-    glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
-
-else:
-    numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(dataset_vocabulary), -1)
+glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
 # Read ELMo word embedding data
 elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
+ext_graph_vocabulary = Vocabulary(
+    config["dataset"]["ext_word_counts_json"], min_count=0
+)
+numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
 
 # Pass vocabulary to construct Embedding layer.
-if not args.numberbatch:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder.w_embed = encoder.w_embed
-else:
-    encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder.w_embed = encoder.w_embed
+# if not args.numberbatch:
+print('\n\nlen(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
+encoder = Encoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
+decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
+# decoder = Decoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
+# decoder.w_embed = encoder.w_embed
+# else:
+#     encoder = Encoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+#     decoder = Decoder(config["model"], train_dataset.vocabulary, numb_token, elmo_token, True)
+#     decoder.w_embed = encoder.w_embed
 
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Share word embedding between encoder and decoder.
 decoder.elmo_embed = encoder.elmo_embed
+decoder.glove_embed = encoder.glove_embed
 decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model
@@ -252,7 +272,7 @@ if args.load_pthpath == "":
     start_epoch = 0
 else:
     # "path/to/checkpoint_xx.pth" -> xx
-    start_epoch = int(args.load_pthpath.split("_")[-1][:-4])
+    start_epoch = int(args.load_pthpath.split("_")[-1][:-4]) + 1
 
     model_state_dict, optimizer_state_dict = load_checkpoint(args.load_pthpath)
     if isinstance(model, nn.DataParallel):
@@ -287,7 +307,6 @@ for epoch in range(start_epoch, config["solver"]["num_epochs"]):
     for i, batch in enumerate(tqdm(combined_dataloader)):
         for key in batch:
             batch[key] = batch[key].to(device)
-       
         optimizer.zero_grad()
         output = model(batch)
         target = (
