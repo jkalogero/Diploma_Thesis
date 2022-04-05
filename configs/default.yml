@@ -75,6 +75,7 @@ model:
   caption_change_num: 256
 
   num_relations: 17
+  multiple_relations: false
 
 
 # Optimization related arguments

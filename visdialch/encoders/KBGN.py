@@ -7,6 +7,7 @@ from visdialch.utils.knowledge_encoding import KnowledgeEncoding
 from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 from visdialch.utils.gcn import GraphConvolution
+from visdialch.utils.rgcn import RelationalGraphConvolutionalNetwork
 
 class KBGN(nn.Module):
     def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, numberbatch):
@@ -88,7 +89,7 @@ class KBGN(nn.Module):
         print('len(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
         self.numb_embed.weight.data = numberbatch
 
-        # self.gnn = GraphConvolution(config) if not config['num_relations'] else 
+        self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
@@ -217,7 +218,8 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        # ext_knowledge_emb = self.gcn(adj_list_emb)
+        ext_knowledge_emb = self.gnn(adj_list_emb, original_limit, batch_size)
+        print('ext_knowledge_emb.shape = ', ext_knowledge_emb.shape)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage
