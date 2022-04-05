@@ -11,143 +11,131 @@ class KnowledgeStorage(nn.Module):
         self.dropout = nn.Dropout(p=config["dropout"])
 
         # Query-Guided Bridge Update
-        self.w_t2v_4 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_t2v_5 = nn.Linear(config["img_feature_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_t2v_b = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-
-        self.w_v2t_4 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_v2t_5 = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
-        self.w_v2t_b = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
+        self.w_t2v = nn.ModuleDict({
+            '4': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            '5': nn.Linear(config["img_feature_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            'b': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            '6': nn.Linear(2*config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            'c': nn.Linear(config["lstm_hidden_size"], 1),
+            'l': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"]),
+            '7': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"]),
+            'e': nn.Linear(config["lstm_hidden_size"], 1),
+            '8': nn.Linear(config["img_feature_size"], config["lstm_hidden_size"]),
+            'a': nn.Linear(config["lstm_hidden_size"], 1),
+            '9': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            'lg': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"]),
+            'num_rounds': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
+        })
+        self.w_v2t = nn.ModuleDict({
+            '4': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            '5': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"]),
+            'b': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            '6': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"]),
+            'c': nn.Linear(config["lstm_hidden_size"], 1),
+            'l': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"]),
+            '7': nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"]),
+            'e': nn.Linear(config["lstm_hidden_size"], 1),
+            '8': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            'a': nn.Linear(config["lstm_hidden_size"], 1),
+            '9': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
+            'lg': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"] + config["lstm_hidden_size"]),
+            'num_rounds': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"])
+        })
         
-        # Query-Guided Cross Graph Convolution
-        self.w_t2v_6 = nn.Linear(2*config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_t2v_c = nn.Linear(config["lstm_hidden_size"], 1)
-
-        self.w_v2t_6 = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
-        self.w_v2t_c = nn.Linear(config["lstm_hidden_size"], 1)
-
-        # Local Knowledge Storage
-        self.w_t2v_l = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"])
-        self.w_t2v_7 = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
-
-        self.w_v2t_l = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"])
-        self.w_v2t_7 = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
-
-        # Global Knowledge Storage
-        self.w_t2v_e = nn.Linear(config["lstm_hidden_size"], 1)
-        self.w_t2v_8 = nn.Linear(config["img_feature_size"], config["lstm_hidden_size"])
-        self.w_t2v_a = nn.Linear(config["lstm_hidden_size"], 1)
-        self.w_t2v_9 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_t2v_lg = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"] + config["img_feature_size"])
-        self.w_t2v_num_rounds = nn.Linear(config["lstm_hidden_size"] + config["img_feature_size"], config["lstm_hidden_size"])
-
-        self.w_v2t_e = nn.Linear(config["lstm_hidden_size"], 1)
-        self.w_v2t_8 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_v2t_a = nn.Linear(config["lstm_hidden_size"], 1)
-        self.w_v2t_9 = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
-        self.w_v2t_lg = nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"] + config["lstm_hidden_size"])
-        self.w_v2t_num_rounds = nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"])
-
-    
+        
     def forward(self, v_nodes, t_nodes, ques_embed, batch_size, num_rounds):
-        # v_nodes = v_nodes.view(batch_size*num_rounds, v_nodes.shape[2], v_nodes.shape[3])
-        # t_nodes = t_nodes.view(batch_size*num_rounds, t_nodes.shape[2], t_nodes.shape[3])
+        
         n_objects = v_nodes.shape[2]
         # Vision Knowledge Storage - Cross Bridge
-        # Query-Guided Bridge Update
-        # B_v_ij = [v_i, s_j], shape = (b, num_rounds, n_objects, num_rounds, 2560)
-        b_v = self.constructCrossGraphEdges(v_nodes, t_nodes, num_rounds, n_objects)
-        b_v = self.w_t2v_5(b_v) # shape: (b*num_rounds, n_objects, num_rounds, 512)
-        ques_embed_t2v = self.w_t2v_4(ques_embed)
-        # convert question from shape (b*num_rounds, 512) to (b*num_rounds, n_objects, num_rounds, 512)
-        ques_embed_t2v=ques_embed_t2v.view(batch_size,num_rounds, 1, 1, self.config["lstm_hidden_size"])
-        # .repeat(1,1,n_objects,num_rounds,1)
-        prod_t2v = ques_embed_t2v * b_v
-        prod_t2v = self.w_t2v_b(prod_t2v)
-        updated_bridge_t2v = torch.softmax(prod_t2v, -2) # γ_ij
-        updated_b_v = updated_bridge_t2v * b_v # (6) shape: (b,num_rounds, n_objects, num_rounds, 512)
+        updated_v_nodes = self.CrossBridge(
+            ques_embed, batch_size, v_nodes, n_objects, t_nodes, num_rounds, self.w_t2v, num_rounds)
 
-        # Query-Guided Cross Graph Convolution
-        t_nodes_t2v = t_nodes.unsqueeze(2) # shape: (b, num_rounds, 1, num_rounds, 512)
-        # .repeat(1,1,n_objects, 1, 1) 
-        s_b_v = torch.cat((t_nodes_t2v.expand(-1,-1,n_objects,-1,-1), updated_b_v), -1)
-        s_b_v = self.w_t2v_6(s_b_v) # shape: (b, num_rounds, n_objects, num_rounds, 512)
-        proj_q_s_b_v = ques_embed_t2v * s_b_v # shape: (b, num_rounds, n_objects, num_rounds, 512)
-        d_t2v = torch.softmax(self.w_t2v_c(proj_q_s_b_v), -2) # δ_ij
-
-        updated_v_nodes = torch.sum(d_t2v*t_nodes_t2v,-2) # shape: (b, num_rounds, n_objects, 512)
-
-
-        # ==========================================================================================
         # Text Knowledge Storage - Cross Bridge
-        # Construct V2T edges
-        # B_s_ij = [s_i, v_j], shape = (b, num_rounds, num_rounds, n_objects, 2560])
-        b_s = self.constructCrossGraphEdges(t_nodes, v_nodes, n_objects, num_rounds)
-        b_s = self.w_v2t_5(b_s) # shape: (b*num_rounds, num_rounds, n_objects, 512)
-        ques_embed_v2t = self.w_v2t_4(ques_embed)
-        # convert question from shape (b, num_rounds, 512) to (b, num_rounds, 1, 1, 512)
-        ques_embed_v2t=ques_embed_v2t.view(batch_size,num_rounds, 1, 1, self.config["lstm_hidden_size"])
-        # ques_embed_v2t.shape = (b, num_rounds, 1, 1, 512)
-        prod_v2t = ques_embed_v2t * b_s #shape = (b, num_rounds, num_rounds, n_objects, 512)
-        prod_v2t = self.w_v2t_b(prod_v2t)
-        updated_bridge_v2t = torch.softmax(prod_v2t, -2) # γ_ij
-        updated_b_s = updated_bridge_v2t * b_s # (6) shape: (b, num_rounds, num_rounds, n_objects, 512)
-
-        # Query-Guided Cross Graph Convolution
-        v_nodes_v2t = v_nodes.unsqueeze(2) # shape: (b, num_rounds, 1, n_objects, 2048)
-        # .repeat(1,1,num_rounds, 1, 1)
-        v_b_s = torch.cat((v_nodes_v2t.expand(-1,-1, num_rounds, -1, -1), updated_b_s), -1)
-        v_b_s = self.w_v2t_6(v_b_s) # shape: (b, num_rounds, num_rounds, n_objects, 512)
-        proj_q_v_b_s = ques_embed_v2t * v_b_s # shape: (b, num_rounds, num_rounds, n_objects, 512)
-        d_v2t = torch.softmax(self.w_v2t_c(proj_q_v_b_s), -2) # δ_ij
-        updated_t_nodes = torch.sum(d_v2t*v_nodes_v2t,-2) # shape: (b, num_rounds, num_rounds, 2048)
-        # ==========================================================================================
-        # ==========================================================================================
-        # Vision Knowledge Storage - Storage
-        # Local Knowledge Storage
-        concated_v = torch.cat((v_nodes, updated_v_nodes), -1) # shape: (b, num_rounds, n_objects, 2560)
-        gate_t2v = torch.sigmoid(self.w_t2v_l(concated_v))
-        local_v = self.w_t2v_7(gate_t2v * concated_v) # shape: (b, num_rounds, n_objects, 512)
-
-        # Global Knowledge Storage
-        # (11), (12)
-        ques_embed = ques_embed.unsqueeze(2) # shape: (b, num_rounds, 1, 512)
-        # .repeat(1,1, n_objects, 1) # shape: (b, num_rounds, n_objects, 512)
-        v_8 = self.w_t2v_8(v_nodes) # shape: (b, num_rounds, n_objects, 512)
-        h_v = torch.softmax(self.w_t2v_e(ques_embed * v_8),-2)
-        I_o = torch.sum(h_v * v_nodes, -2) # shape: (b, num_rounds, 2048)
-        # (13), (14)
-        v_9 = self.w_t2v_9(local_v) # shape: (b, num_rounds, n_objects, 512)
-        m_v = torch.softmax(self.w_t2v_a(ques_embed * v_9),-2)
-        I_c = torch.sum(m_v * local_v, -2) # shape: (b, num_rounds, 512)
-        # (15), (16)
-        gate_v_g = torch.sigmoid(self.w_t2v_lg(torch.cat((I_o, I_c), -1)))
-        I = self.w_t2v_num_rounds(gate_v_g * torch.cat((I_o, I_c), -1)) # shape: (b, num_rounds, 512)
+        updated_t_nodes = self.CrossBridge(
+            ques_embed, batch_size, t_nodes, num_rounds, v_nodes, n_objects, self.w_v2t, num_rounds)
         
-
+        # Vision Knowledge Storage - Storage
+        I = self.Storage(ques_embed, v_nodes, updated_v_nodes, self.w_t2v)
         # Text Knowledge Storage - Storage
-        # Local Knowledge Storage
-        concated_t = torch.cat((t_nodes, updated_t_nodes), -1)        
-        gate_v2t = torch.sigmoid(self.w_v2t_l(concated_t))
-        local_t = self.w_v2t_7(gate_v2t * concated_t) # shape: (b, num_rounds, num_rounds, 512)
-        # (11), (12)
-        # Global Knowledge Storage
-        # q_v2t = ques_embed.unsqueeze(2).repeat(1,1, num_rounds, 1)# shape: (b*num_rounds, num_rounds, 512)
-        t_8 = self.w_v2t_8(t_nodes)
-        h_t = torch.softmax(self.w_v2t_e(ques_embed * t_8),-2)
-        H_o = torch.sum(h_t * t_nodes, -2) # shape: (b, num_rounds, 512)
-        # (13), (14)
-        t_9 = self.w_v2t_9(local_t) # shape: (b, num_rounds, num_rounds, 512)
-        m_t = torch.softmax(self.w_v2t_a(ques_embed * t_9),-2)
-        H_c = torch.sum(m_t * local_t, -2) # shape: (b, num_rounds, 512)
-        # (15), (16)
-        gate_t_g = torch.sigmoid(self.w_v2t_lg(torch.cat((H_o, H_c), -1)))
-        H = self.w_v2t_num_rounds(gate_t_g * torch.cat((H_o, H_c), -1)) # shape: (b, num_rounds, 512)
-
+        H = self.Storage(ques_embed, t_nodes, updated_t_nodes, self.w_v2t)
+        
         return (I, H)
 
-        
     
+    def CrossBridge(self, question, batch_size, center_nodes, center_nodes_dim, cross_nodes, cross_nodes_dim, weights, num_rounds):
+        """
+        Cross Bridge consists of: 
+        1. Query-Guided Bridge Update, which updates the edges between center and cross nodes.
+        2. Query-Guided Cross Graph Convolution, which performs a GCN between the cross graph 
+        and each center node.
+
+        Parameters:
+        ===========
+        question:
+            The embedding of the question, shape: (b, num_rounds, emb_dim)
+        batch_size:
+            The batch size
+        center_nodes: 
+            The nodes of the modality to be enriched with cross nodes
+        center_nodes_dim: int
+            Dimension length of center nodes (n_objects/n_rounds)
+        cross_nodes: 
+            The nodes of the modality that will enrich center nodes
+        cross_nodes_dim: int
+            Dimension length of cross nodes (n_rounds/n_objects)
+        weights: nn.ModuleDict
+            Dictionary with all the weights (t2v/vt2)
+        """
+        # Query-Guided Bridge Update
+        # B_ij = [center_i, cross_j], shape = (b, cross_nodes_dim, center_nodes_dim, cross_nodes_dim, 2560)
+        b = self.constructCrossGraphEdges(center_nodes, cross_nodes, cross_nodes_dim, center_nodes_dim)
+        b = weights['5'](b) # shape: (b,cross_nodes_dim, center_nodes_dim, cross_nodes_dim, 512)
+        question_emb = weights['4'](question)
+        # convert question from shape (b,num_rounds, 512) to (b,num_rounds, 1, 1, 512)
+        question_emb=question_emb.view(batch_size,num_rounds, 1, 1, self.config["lstm_hidden_size"])
+        # .repeat(1,1,center_nodes_dim,cross_nodes_dim,1)
+
+        product = question_emb * b
+        product = weights['b'](product)
+        updated_bridge = torch.softmax(product, -2) # γ_ij
+        updated_b = updated_bridge * b # (6) shape: (b,cross_nodes_dim, center_nodes_dim, cross_nodes_dim, 512)
+
+        # Query-Guided Cross Graph Convolution
+        cross_nodes = cross_nodes.unsqueeze(2) # shape: (b, cross_nodes_dim, 1, cross_nodes_dim, 512)
+        # .repeat(1,1,center_nodes_dim, 1, 1) 
+        s_b = torch.cat((cross_nodes.expand(-1,-1,center_nodes_dim,-1,-1), updated_b), -1)
+        s_b = weights['6'](s_b) # shape: (b, cross_nodes_dim, center_nodes_dim, cross_nodes_dim, 512)
+        proj_q_s_b = question_emb * s_b # shape: (b, cross_nodes_dim, center_nodes_dim, cross_nodes_dim, 512)
+        d = torch.softmax(weights['c'](proj_q_s_b), -2) # δ_ij
+
+        updated_center_nodes = torch.sum(d*cross_nodes,-2) # shape: (b, cross_nodes_dim, center_nodes_dim, 512)
+        return updated_center_nodes
+
+    
+    def Storage(self, question, nodes, updated_nodes, weights):
+        # Local Knowledge Storage
+        concated_v = torch.cat((nodes, updated_nodes), -1) # shape: (b, num_rounds, n_objects, 2560)
+        gate_t2v = torch.sigmoid(weights['l'](concated_v))
+        local_v = weights['7'](gate_t2v * concated_v) # shape: (b, num_rounds, n_objects, 512)
+
+        # Global Knowledge Storage
+        # (11), (12)
+        ques_embed = question.unsqueeze(2) # shape: (b, num_rounds, 1, 512)
+        # .repeat(1,1, n_objects, 1) # shape: (b, num_rounds, n_objects, 512)
+        v_8 = weights['8'](nodes) # shape: (b, num_rounds, n_objects, 512)
+        h_v = torch.softmax(weights['e'](ques_embed * v_8),-2)
+        K_o = torch.sum(h_v * nodes, -2) # shape: (b, num_rounds, 2048)
+        # (13), (14)
+        v_9 = weights['9'](local_v) # shape: (b, num_rounds, n_objects, 512)
+        m_v = torch.softmax(weights['a'](ques_embed * v_9),-2)
+        K_c = torch.sum(m_v * local_v, -2) # shape: (b, num_rounds, 512)
+
+        # (15), (16)
+        gate_v_g = torch.sigmoid(weights['lg'](torch.cat((K_o, K_c), -1)))
+        global_knowledge = weights['num_rounds'](gate_v_g * torch.cat((K_o, K_c), -1)) # shape: (b, num_rounds, 512)
+
+        return global_knowledge
+
     def constructCrossGraphEdges(self, center_nodes, cross_nodes, n_cross, n_center):
         """
         Function that creates a graph with a center node, connected to all cross nodes.
