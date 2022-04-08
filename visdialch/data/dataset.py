@@ -156,12 +156,12 @@ class VisDialDataset(Dataset):
         item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
         
         item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'])
-        item['adj_list'] = torch.tensor(item['adj_list'])
+        item['adj_list'] = torch.tensor(np.array(item['adj_list']))
         
         
-        item['concept_ids'] = torch.tensor(concepts).long()
+        item['concept_ids'] = torch.tensor(np.array(concepts)).long()
 
-        item['original_limit'] = torch.tensor(original_limit).long()
+        item['original_limit'] = torch.tensor(np.array(original_limit)).long()
 
         if self.return_options:
             if self.add_boundary_toks:

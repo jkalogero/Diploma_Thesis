@@ -219,13 +219,12 @@ class KBGN(nn.Module):
         # print(text_rel[0][2])
         
         ext_knowledge_emb = self.gnn(adj_list_emb, original_limit, batch_size)
-        print('ext_knowledge_emb.shape = ', ext_knowledge_emb.shape)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage
-        I, H = self.KnowldgeStorage(updated_v_nodes, updated_t_nodes, ques_embed, batch_size, num_rounds)
+        I_t, I_extk, H_i, H_extk = self.KnowldgeStorage(updated_v_nodes, updated_t_nodes, ext_knowledge_emb, ques_embed, batch_size, num_rounds)
         # Knowledge Retrieval
-        final_embedding = self.KnowldgeRetrieval(I, H, ques_embed)
+        final_embedding = self.KnowldgeRetrieval(I_t, I_extk, H_i, H_extk, ques_embed)
         final_embedding = final_embedding.view(batch_size, num_rounds, -1)
         
         return final_embedding

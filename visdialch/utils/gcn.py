@@ -12,7 +12,7 @@ class GraphConvolution(nn.Module):
     def __init__(self, config):
         super(GraphConvolution, self).__init__()
         self.config = config
-        self.w_gcn = nn.Linear(config['numberbatch_dim'], config["lstm_hidden_size"])
+        self.w_gcn = nn.Linear(config['numberbatch_dim'], config['numberbatch_dim'])
 
         # self.weight = nn.Parameter(torch.FloatTensor(config['numberbatch_dim'], config["lstm_hidden_size"]))
         # self.register_parameter('bias', None)
@@ -30,14 +30,15 @@ class GraphConvolution(nn.Module):
         """
         # support = torch.matmul(input, self.weight)
         # output = torch.spmm(adj, support)
-        print("adj_list.shape = ", adj_list.shape) # shape = (b, n_rounds, iniital_nodes, max_rel)
+        # print("adj_list.shape = ", adj_list.shape) # shape = (b, n_rounds, iniital_nodes, max_rel)
         
-        deg = torch.count_nonzero(adj_list, -1)
-        print("deg.shape = ", deg.shape)
-        deg_inv_sqrt = deg.pow(-0.5) #shape = (b,n_nodes)
-        we_d = torch.randn((4,4,3,1))
+        # deg = torch.count_nonzero(adj_list, -1)
+        # print("deg.shape = ", deg.shape)
+        # deg_inv_sqrt = deg.pow(-0.5) #shape = (b,n_nodes)
+        # we_d = torch.randn((4,4,3,1))
         # we_dd = 
-        print("deg_inv_sqrt.shape = ", deg_inv_sqrt.shape)
+        # print("deg_inv_sqrt.shape = ", deg_inv_sqrt.shape)
+        adj_list = self.w_gcn(adj_list)
         node_embeddings = torch.sum(adj_list,-2) #shape = (b,n_nodes,emb_size)
 
 
