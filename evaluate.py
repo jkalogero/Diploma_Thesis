@@ -43,6 +43,14 @@ parser.add_argument(
     "--test-json", default="data/visdial_1.0_test.json",
     help="Path to VisDial v1.0 test data. This argument doesn't work when --split=val."
 )
+parser.add_argument(
+    "--adj-val-h5", default="data/adj_val_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
+parser.add_argument(
+    "--adj-test-h5", default="data/adj_test_paths.h5",
+    help="Path to pickle file containing adjacency matrices for each dialog."
+)
 
 
 parser.add_argument(
@@ -121,6 +129,7 @@ if args.split == "val":
     val_dataset = VisDialDataset(
         config["dataset"], 
         args.val_json, 
+        args.adj_val_h5,
         overfit=args.overfit,
         in_memory=args.in_memory,
         num_workers=args.cpu_workers,
@@ -132,6 +141,7 @@ else:
     val_dataset = VisDialDataset(
         config["dataset"], 
         args.test_json,
+        args.adj_test_h5,
         overfit=args.overfit, 
         in_memory=args.in_memory,
         num_workers=args.cpu_workers,
@@ -143,36 +153,31 @@ val_dataloader = DataLoader(
     val_dataset, batch_size=config["solver"]["batch_size"], num_workers=args.cpu_workers
 )
 
+ext_graph_vocabulary = Vocabulary(
+config["dataset"]["ext_word_counts_json"], min_count=0
+)
 dataset_vocabulary = Vocabulary(
     config["dataset"]["word_counts_json"], min_count=config["dataset"]["vocab_min_count"]
 )
-# Read GloVe word embedding data
-if not args.numberbatch:
-    glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-else:
-    numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(dataset_vocabulary), -1)
+# Read GloVe word embedding data
+glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).view(len(dataset_vocabulary), -1)
 
 # Read ELMo word embedding data
 elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
+numb_token = torch.Tensor(np.load(config["dataset"]["val_numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
 
 # Pass vocabulary to construct Embedding layer.
-if not args.numberbatch:
-    encoder = Encoder(config["model"], val_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder = Decoder(config["model"], val_dataset.vocabulary, glove_token, elmo_token, False)
-    decoder.w_embed = encoder.w_embed
-else:
-    encoder = Encoder(config["model"], val_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder = Decoder(config["model"], val_dataset.vocabulary, numb_token, elmo_token, True)
-    decoder.w_embed = encoder.w_embed
 
+encoder = Encoder(config["model"], val_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
+decoder = Decoder(config["model"], val_dataset.vocabulary, glove_token, elmo_token, False)
+decoder.elmo_embed = encoder.elmo_embed
+decoder.glove_embed = encoder.glove_embed
+decoder.embed_change = encoder.embed_change
 print("Encoder: {}".format(config["model"]["encoder"]))
 print("Decoder: {}".format(config["model"]["decoder"]))
 
-# Share word embedding between encoder and decoder.
-decoder.elmo_embed = encoder.elmo_embed
-decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model.
 model = EncoderDecoderModel(encoder, decoder).to(device)
