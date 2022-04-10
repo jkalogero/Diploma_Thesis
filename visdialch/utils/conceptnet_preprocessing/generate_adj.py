@@ -10,6 +10,7 @@ import pickle
 import h5py
 from scipy import spatial
 from collections import defaultdict
+from operator import itemgetter
 
 inv_relations = ['inv_'+el for el in merged_relations]
 full_relations = merged_relations + inv_relations
@@ -39,7 +40,7 @@ def load_cpnet(cpnet_graph_path):
 
 
 
-def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=17, add_inverse=True, add_padding=True):
+def createAdjList(schema_graph, adj_dict, original, max_nodes = 75,max_edges=100, num_rel=17, add_inverse=True, add_padding=True):
     """
     The adjacency list will have shape: (num_rel x max_nodes,max_edges), or (2xnum_rel x max_nodes,max_edges)
     if add_inverse = True.
@@ -53,6 +54,9 @@ def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=
     adj_dict: Dict
         Keys are the source node c_id and values the tuple (rel_id, target node t_id)
     
+    original: List<bool>
+        List of the schema nodes indicating where they are original or not
+
     max_edges: int
         Number of relations for each node in the adjacency list
     
@@ -60,14 +64,13 @@ def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=
         Add inverse relations. This will convert num_rel -> 2*num_rel
     
     add_padding: bool
-        Add padding until `max_edges`. Padding value: c_id = 0.
+        Add padding until `max_edges`. Padding value: "<PAD>".
     """
     
     # initialize list
     n_rel = 2*num_rel if add_inverse else num_rel
     adj_list = [[] for _ in range(n_rel*max_nodes)]
 
-    n_nodes = len(schema_graph)
 
     _schema = {v:i for i,v in enumerate(schema_graph)}
 
@@ -75,20 +78,32 @@ def createAdjList(schema_graph, adj_dict, max_nodes = 200,max_edges=20, num_rel=
     for idx,node in enumerate(schema_graph):
         # print('node ', id2concept[node])
         for neighbour in adj_dict[node]:
-            i = neighbour[0]*n_nodes + idx
-            if len(adj_list[i]) < max_edges:
-                adj_list[i].append(_schema[neighbour[1]])
+            # add in list only if it is original
+            if original[idx]:
+                i = neighbour[0]*max_nodes + idx
+                if len(adj_list[i]) < max_edges:
+                    adj_list[i].append(str(id2concept[neighbour[1]]))
+                    print("Adding ", id2concept[node], ' --> ', id2relation[neighbour[0]] , ' --> ', id2concept[neighbour[1]])
 
-            if add_inverse:
+            if add_inverse and original[_schema[neighbour[1]]]:
                 # id of inverse relation of r: r + num_rel
-                i_reverse = _schema[neighbour[1]]+(neighbour[0]+num_rel)*n_nodes
+                i_reverse = _schema[neighbour[1]]+(neighbour[0]+num_rel)*max_nodes
                 if len(adj_list[i_reverse]) < max_edges:
-                    adj_list[i_reverse].append(_schema[node])
+                    adj_list[i_reverse].append(str(id2concept[node]))
+                    print("Adding ", id2concept[neighbour[1]], ' --> inv_', id2relation[neighbour[0]] , ' --> ', id2concept[node])
+        
+    for idx,node in enumerate(schema_graph):
+        # add self relation using `isa` relation type.. rel_id=5
+        if node and original[idx]: # if not pad
+            isa_rel_id=5
+            self_i = isa_rel_id*max_nodes + idx
+            adj_list[self_i].append(str(id2concept[node]))
+
 
     # padding
     if add_padding:
         for idx,_ in enumerate(adj_list):
-            adj_list[idx] += [0 for _ in range(max_edges-len(adj_list[idx]))]
+            adj_list[idx] += ["<PAD>" for _ in range(max_edges-len(adj_list[idx]))]
     
     return np.array(adj_list)
 
@@ -104,7 +119,7 @@ def score_triple(h,rel,t):
 def newNode(node, original_nodes, extra_nodes):
     return (node not in original_nodes) and (node not in extra_nodes)
 
-def concepts2adj(node_ids, original, limit, max_nodes = 200):
+def concepts2adj(node_ids, original, limit, max_edges = 50):
     """
     Compute the adj list given a set of nodes.
     The adj list will have shape: RxN,E
@@ -147,14 +162,14 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
                             # if over the threshold or both original nodes
                             if score > threshold or (original[s] and original[t]):
                                 # skip if new node occurs but the upper limit of nodes is reached
-                                if not ((newNode(s_c, new_schema_graph_set, extra_nodes) or newNode(t_c, new_schema_graph_set, extra_nodes)) and (len(extra_nodes) >= max_nodes - len(new_schema_graph_set))):
-                                    # if not originals add to extra nodes set
-                                    if s_c not in new_schema_graph_set:
-                                        extra_nodes.add(s_c)
-                                    if t_c not in new_schema_graph_set:
-                                        extra_nodes.add(t_c)
-                                    
-                                    adj_dict[s_c].append((e_attr['rel'],t_c))
+                                # if not ((newNode(s_c, new_schema_graph_set, extra_nodes) or newNode(t_c, new_schema_graph_set, extra_nodes)) and (len(extra_nodes) >= max_nodes - len(new_schema_graph_set))):
+                                # if not originals add to extra nodes set
+                                if s_c not in new_schema_graph_set:
+                                    extra_nodes.add(s_c)
+                                if t_c not in new_schema_graph_set:
+                                    extra_nodes.add(t_c)
+                                
+                                adj_dict[s_c].append((e_attr['rel'],t_c, score))
                                     # min_score = min(min_score, score)
                                     # max_score = max(max_score, score)
                                     # adj[e_attr['rel']][s][t] = 1
@@ -162,30 +177,38 @@ def concepts2adj(node_ids, original, limit, max_nodes = 200):
                                     # cnt +=1
 
     # cids += 1  # note!!! index 0 is reserved for padding
-    # or_len = len(new_schema_graph)
-    # print("\n\nORIGINAL SCHEMA GRAPH: ", or_len, ' nodes', end='\t') #delete
+    
+    for key,value in adj_dict.items():
+        _sorted = sorted(value, key=itemgetter(1), reverse=True) # sort based on score
+        adj_dict[key] = [(el[0],el[1]) for el in _sorted[:max_edges]] # keep only the first
+    
     if extra_nodes:
         new_schema_graph = np.append(new_schema_graph, list(extra_nodes))
+    
+    concept_names = [id2concept[c] for c in new_schema_graph]
     # print("NEW SCHEMA GRAPH: ", len(new_schema_graph), ' nodes. Increase of ', len(new_schema_graph)/or_len) #delete
 
     # pad schema graph - FIRST SLICE AND PAD AND THEN CREATE ADJ LIST BASED ON THE PADDED SCHEMA GRAPH
-    new_schema_graph = new_schema_graph[:max_nodes]
-    new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
-    adj_list = createAdjList(new_schema_graph, adj_dict)
+    # new_schema_graph = new_schema_graph[:max_nodes]
+    # new_schema_graph = np.pad(new_schema_graph, (0,max_nodes - len(new_schema_graph)))
+    adj_list = createAdjList(new_schema_graph, adj_dict, original)
 
 
     # print('='*10, '\nmin_score = ', min_score,'\nmax_score = ', max_score,'\n', '='*10)
-    return adj_list, new_schema_graph, original
+    return adj_list, new_schema_graph, original, concept_names
 
 def _generateAdj(data_list):
     """
     Find common neighbours in graph and create adjacency list.
     """
     img_id, data = data_list
-
+    print(img_id)
     res = []
     for _round in data: # for each round
         all_concepts = set(_round)
+        print('Grounded: ')
+        for c in all_concepts:
+            print(id2concept[c], end='\t')
         common_neighbours = set()
         # print("\n\nROUND CONCEPTS:") #delete
         # for c1 in all_concepts:#delete
@@ -206,9 +229,9 @@ def _generateAdj(data_list):
         # Get the limit between original and extra nodes
         arange = np.arange(len(schema_graph))
         original_mask = arange < len(all_concepts)
-        adj_list, concepts, original_mask = concepts2adj(schema_graph, original_mask, len(all_concepts))
+        adj_list, concepts, original_mask, concept_names = concepts2adj(schema_graph, original_mask, len(all_concepts))
         
-        res.append({'adj_list':adj_list, 'c':concepts, 'original_limit': int(sum(original_mask))})
+        res.append({'adj_list':adj_list, 'concepts': concept_names})
     
     
     return (img_id, res)
@@ -245,9 +268,9 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
     # data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
     #     for img_id, dialog in grounded_concepts.items()][:1]
     
-    # sample = ['378466', '332243', '378461', '287140', '575029']
+    sample = ['378466', '332243', '378461', '287140', '575029']
     data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
-        for img_id, dialog in grounded_concepts.items()]
+        for img_id, dialog in grounded_concepts.items() if img_id in sample]
     
     # print('data_list = ', data_list)
 
@@ -261,15 +284,21 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
         res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,80), total=len(grounded_concepts), desc='Generating adj matrices..')}
     
 
-    h = h5py.File(output_path)
+    h = h5py.File(output_path,'w')
     for k,v in tqdm(res.items()):
         print('Creating group for image: ', k)
         grp = h.create_group(k)
         for idx,_round in enumerate(v):
             subgrp = grp.create_group(str(idx))
-            subgrp.create_dataset('adj_list', data=_round['adj_list'].astype(np.int64), chunks=True)
+            string_dt = h5py.special_dtype(vlen=str)
+            data = np.array(_round['adj_list'], dtype=object)
+            concept_names = np.array(_round['concepts'], dtype=object)
+            print(type(_round['adj_list'][0]))
+            print(type(_round['adj_list'][0][0]))
+            subgrp.create_dataset('adj_list', data=data, dtype=string_dt)
+            subgrp.create_dataset('concept_names', data=concept_names, dtype=string_dt)
             subgrp.create_dataset('concepts', data=_round['c'].astype(np.int64), chunks=True)
-            # subgrp.create_dataset('original', data=_round['original'].astype(np.int64), chunks=True)
+            # subgrp.create_dataset('original_mask', data=_round['original_mask'].astype(np.int64), chunks=True)
             # subgrp.create_dataset('shape', data=_round['adj'].shape, chunks=True)
         grp.create_dataset('original_limit', data=[_round['original_limit'] for _round in v], chunks=True)
     h.close()

@@ -41,7 +41,7 @@ DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
 # splits = ['train', 'val', 'test']
-splits = ['train']
+splits = ['test']
 
 dataset_paths = {
     'train': DATA_DIR + 'visdial_1.0_train.json',
@@ -286,6 +286,7 @@ def main():
         create_matcher_patterns(conceptnet_vocab_file, conceptnet_patterns)
 
     if args.debug:
+        splits = ['train']
         sub_graphs_adj['train'] = '/home/'+username+'/KBGN-Implementation/data/debug_adj.h5'
 
     # ==================================================================================
