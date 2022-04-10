@@ -43,12 +43,12 @@ class KnowledgeStorage(nn.Module):
         })
         self.w_extk2v = nn.ModuleDict({
             '4': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
-            '5': nn.Linear(config["img_feature_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            '5': nn.Linear(config["img_feature_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'b': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
-            '6': nn.Linear(config["lstm_hidden_size"]+ config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            '6': nn.Linear(config["lstm_hidden_size"]+ config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'c': nn.Linear(config["lstm_hidden_size"], 1),
-            'l': nn.Linear(config["img_feature_size"] + config["numberbatch_embedding_size"], config["img_feature_size"] + config["numberbatch_embedding_size"]),
-            '7': nn.Linear(config["img_feature_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            'l': nn.Linear(config["img_feature_size"] + config["lstm_hidden_size"], config["img_feature_size"] + config["lstm_hidden_size"]),
+            '7': nn.Linear(config["img_feature_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'e': nn.Linear(config["lstm_hidden_size"], 1),
             '8': nn.Linear(config["img_feature_size"], config["lstm_hidden_size"]),
             'a': nn.Linear(config["lstm_hidden_size"], 1),
@@ -58,12 +58,12 @@ class KnowledgeStorage(nn.Module):
         })
         self.w_extk2t = nn.ModuleDict({
             '4': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
-            '5': nn.Linear(config["lstm_hidden_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            '5': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'b': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
-            '6': nn.Linear(config["lstm_hidden_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            '6': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'c': nn.Linear(config["lstm_hidden_size"], 1),
-            'l': nn.Linear(config["lstm_hidden_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"] + config["numberbatch_embedding_size"]),
-            '7': nn.Linear(config["lstm_hidden_size"] + config["numberbatch_embedding_size"], config["lstm_hidden_size"]),
+            'l': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"] + config["lstm_hidden_size"]),
+            '7': nn.Linear(config["lstm_hidden_size"] + config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'e': nn.Linear(config["lstm_hidden_size"], 1),
             '8': nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"]),
             'a': nn.Linear(config["lstm_hidden_size"], 1),
@@ -89,7 +89,7 @@ class KnowledgeStorage(nn.Module):
 
         updated_extk2v_nodes = self.CrossBridge(
             ques_embed, batch_size, v_nodes, n_objects, ext_nodes, n_ext_nodes, self.w_extk2v, num_rounds)
-        #  updated_extk2v_nodes.shape = (b, n_rounds, n_objects, numberbatch_embedding_size)
+        #  updated_extk2v_nodes.shape = (b, n_rounds, n_objects, lstm_hidden_size)
 
         # Text Knowledge Storage - Cross Bridge
         updated_v2t_nodes = self.CrossBridge(
@@ -99,7 +99,7 @@ class KnowledgeStorage(nn.Module):
 
         updated_extk2t_nodes = self.CrossBridge(
             ques_embed, batch_size, t_nodes, num_rounds, ext_nodes, n_ext_nodes, self.w_extk2t, num_rounds)
-        # updated_extk2t_nodes.shape = (b, n_rounds, n_rounds, numberbatch_embedding_size)
+        # updated_extk2t_nodes.shape = (b, n_rounds, n_rounds, lstm_hidden_size)
         
         
         # Vision Knowledge Storage - Storage
@@ -171,33 +171,33 @@ class KnowledgeStorage(nn.Module):
     def Storage(self, question, nodes, updated_nodes, weights):
         # Local Knowledge Storage
         concated_v = torch.cat((nodes, updated_nodes), -1) # shape: (b, num_rounds, n_objects, 2560)
-        print('concated_v.shape = ', concated_v.shape)
+        # print('concated_v.shape = ', concated_v.shape)
         gate_t2v = torch.sigmoid(weights['l'](concated_v))
-        print('gate_t2v.shape = ', gate_t2v.shape)
+        # print('gate_t2v.shape = ', gate_t2v.shape)
         local_v = weights['7'](gate_t2v * concated_v) # shape: (b, num_rounds, n_objects, 512)
-        print('local_v.shape = ', local_v.shape)
+        # print('local_v.shape = ', local_v.shape)
 
         # Global Knowledge Storage
         # (11), (12)
         ques_embed = question.unsqueeze(2) # shape: (b, num_rounds, 1, 512)
         # .repeat(1,1, n_objects, 1) # shape: (b, num_rounds, n_objects, 512)
         v_8 = weights['8'](nodes) # shape: (b, num_rounds, n_objects, 512)
-        print('v_8.shape = ', v_8.shape)
+        # print('v_8.shape = ', v_8.shape)
         h_v = torch.softmax(weights['e'](ques_embed * v_8),-2)
-        print('h_v.shape = ', h_v.shape)
+        # print('h_v.shape = ', h_v.shape)
         K_o = torch.sum(h_v * nodes, -2) # shape: (b, num_rounds, 2048)
         # (13), (14)
         v_9 = weights['9'](local_v) # shape: (b, num_rounds, n_objects, 512)
-        print('v_9.shape = ', v_9.shape)
+        # print('v_9.shape = ', v_9.shape)
         m_v = torch.softmax(weights['a'](ques_embed * v_9),-2)
-        print('m_v.shape = ', m_v.shape)
+        # print('m_v.shape = ', m_v.shape)
         K_c = torch.sum(m_v * local_v, -2) # shape: (b, num_rounds, 512)
 
         # (15), (16)
         gate_v_g = torch.sigmoid(weights['lg'](torch.cat((K_o, K_c), -1)))
-        print('gate_v_g.shape = ', gate_v_g.shape)
+        # print('gate_v_g.shape = ', gate_v_g.shape)
         global_knowledge = weights['num_rounds'](gate_v_g * torch.cat((K_o, K_c), -1)) # shape: (b, num_rounds, 512)
-        print('global_knowledge.shape = ', global_knowledge.shape)
+        # print('global_knowledge.shape = ', global_knowledge.shape)
 
         return global_knowledge
 
