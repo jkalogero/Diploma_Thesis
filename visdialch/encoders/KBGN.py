@@ -99,8 +99,6 @@ class KBGN(nn.Module):
 
     def forward(self, batch):
         # Get data
-        concepts = batch['concept_ids']
-        original_limit = batch['original_limit']
         adj_list = batch['adj_list']
 
         img = batch["img_feat"]
@@ -218,7 +216,7 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        ext_knowledge_emb = self.gnn(adj_list_emb, original_limit, batch_size)
+        ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, batch_size)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage

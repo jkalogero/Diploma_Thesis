@@ -46,6 +46,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--adj-train-h5", default="data/train_adj_list.h5",
+    # "--adj-train-h5", default="data/debug_adj.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(

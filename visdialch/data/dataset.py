@@ -5,6 +5,7 @@ import torch
 from torch.nn.functional import normalize
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from yaml import load
 
 from visdialch.data.readers import DialogsReader, DenseAnnotationsReader, ImageFeaturesHdfReader, AdjacencyMatricesReader, AdjacencyListReader
 from visdialch.data.vocabulary import Vocabulary
@@ -48,6 +49,10 @@ class VisDialDataset(Dataset):
 
         self.vocabulary = Vocabulary(
             config["word_counts_json"], min_count=config["vocab_min_count"]
+        )
+
+        self.ext_vocabulary = Vocabulary(
+            config["ext_word_counts_json"], min_count=0
         )
 
         # Initialize image features reader according to split.
@@ -135,8 +140,10 @@ class VisDialDataset(Dataset):
         )
         
         # external knowledge
-        adj_list, concepts, original_limit = self.adj_list_reader[image_id]
-
+        adj_list = self.adj_list_reader[image_id]
+        for i_r in range(len(adj_list)):
+            for node in range(len(adj_list[i_r])):
+                adj_list[i_r][node] = self.ext_vocabulary.to_indices(adj_list[i_r][node])
 
 
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
@@ -153,15 +160,11 @@ class VisDialDataset(Dataset):
         item["hist_len"] = torch.tensor(history_lengths).long()
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
-        item["num_rounds"] = torch.tensor(visdial_instance["num_rounds"]).long()
+        item["num_rounds"] = torch.tensor(np.array(visdial_instance["num_rounds"])).long()
+        item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
+        item['adj_list'] = torch.tensor(np.array(item['adj_list'], dtype=np.float)).long()
+        # print('item[adj_list].shape = ', item['adj_list'].shape)
         
-        item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'])
-        item['adj_list'] = torch.tensor(np.array(item['adj_list']))
-        
-        
-        item['concept_ids'] = torch.tensor(np.array(concepts)).long()
-
-        item['original_limit'] = torch.tensor(np.array(original_limit)).long()
 
         if self.return_options:
             if self.add_boundary_toks:
@@ -502,7 +505,7 @@ class VisDialDataset(Dataset):
         rel = torch.tensor(n_relations)
         return concept_ids, adj_lengths, rel, torch.tensor(adj_list)
 
-    def merge_relationships(self,adj_list, n_rel, n_nodes, max_edges = 40):
+    def merge_relationships(self,adj_list, n_rel, n_nodes, max_edges):
         """
         Function that converts multirelational adjacency lists into
         single relation adjacency lists.
@@ -522,6 +525,11 @@ class VisDialDataset(Dataset):
             The number of nodes in the graph.
         """
         
+        
+        # Keep only the relevant relations: 
+        relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
+        relevant_indexes = [i + 34*node for node in range(n_nodes) for i in relevant_indexes_single]
+        adj_list = np.array(adj_list)[:,relevant_indexes,:]
         # For each round:
             # For each node:
                 # Iterate the list starting from the node and with step n_nodes

@@ -449,15 +449,12 @@ class AdjacencyListReader(object):
         raise NotImplementedError
     
     def __getitem__(self, image_id: int):
-        adj_list, concepts, original_limit = [], [], []
+        adj_list = []
         with h5py.File(self.adj_path, "r") as f:
             for _round in f[str(image_id)].keys():
-                if _round == 'original_limit':
-                    original_limit = np.array(f[str(image_id)][_round])
-                else:
+                if _round != 'original_limit':
                     adj_list.append(np.array(f[str(image_id)][_round]['adj_list']))
-                    concepts.append(np.array(f[str(image_id)][_round]['concepts']))
-        return adj_list, concepts, original_limit
+        return adj_list
 
 
 class PreprocessedDialogsReader(object):
