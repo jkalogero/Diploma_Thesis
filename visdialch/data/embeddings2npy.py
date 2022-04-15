@@ -9,7 +9,7 @@ import json
 # For the VisDial Vocabulary there were:
 #   188 OOV for GloVe embeddings
 #   0 OOV for ELMo embeddings
-#   611 OOV for Numberbatch embeddings on visdial vocabulary
+#   3667/104134 OOV for Numberbatch embeddings on visdial vocabulary
 #   7 OOV for Numberbatch embeddings on ext knowledge graph nodes
 
 username = getpass.getuser()

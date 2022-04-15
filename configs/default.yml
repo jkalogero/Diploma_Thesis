@@ -5,8 +5,8 @@ dataset:
   image_features_test_h5: 'data/test.h5'
 
   word_counts_json: 'data/visdial_1.0_word_counts_train.json'
-  # ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/ext_vocab.json
-  ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/debug_ext_vocab.json'
+  ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/ext_vocab.json'
+  # ext_word_counts_json: '/home/jkalogero/KBGN-Implementation/data/debug_ext_vocab.json'
 
   elmopath: 'data/elmo_1024.json'
   glovepath: 'data/glove.6B.300d.txt'
@@ -17,8 +17,8 @@ dataset:
 
   elmo_visdial_path: 'data/elmo_visdial.json.npy'
   glove_visdial_path: 'data/glove_visdial.json.npy'
-  # numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
-  numberbatch_visdial_path: 'data/debug_numberbatch_visdial.json.npy'
+  numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
+  # numberbatch_visdial_path: 'data/debug_numberbatch_visdial.json.npy'
 
   
   tokenized_questions_train: 'data/tokenized_questions_train.json'
@@ -34,6 +34,8 @@ dataset:
   tokenized_captions_test2018: 'data/tokenized_captions_test.json'
   tokenized_dialogs_test2018: 'data/tokenized_dialogs_test.json'
 
+  conceptnet_vocab_file: 'data/cpnet/pad_concept.txt'
+
   img_norm: 1
   concat_history: false
   max_sequence_length: 20
@@ -44,8 +46,8 @@ dataset:
 
   multiple_relations: false
   num_relations: 17
-  max_edges: 75
-  max_nodes: 75
+  max_edges: 45
+  max_nodes: 35
 
 
 # Model related arguments
@@ -80,6 +82,9 @@ model:
 
   num_relations: 17
   multiple_relations: false
+  max_edges: 45
+  max_nodes: 35
+
 
 
 # Optimization related arguments

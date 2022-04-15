@@ -225,7 +225,7 @@ def main():
     parser.add_argument(
         '--prune_threshold', 
         action="store_true",
-        default=0.66,
+        default=0.45,
         help='Threshold for pruning edges.')
 
     parser.add_argument(
@@ -285,9 +285,10 @@ def main():
     if not files_exist([conceptnet_patterns]):
         create_matcher_patterns(conceptnet_vocab_file, conceptnet_patterns)
 
-    if args.debug:
-        splits = ['train']
-        sub_graphs_adj['train'] = '/home/'+username+'/KBGN-Implementation/data/debug_adj.h5'
+    # if args.debug:
+    #     global splits
+    #     splits = ['train']
+    #     sub_graphs_adj['train'] = '/home/'+username+'/KBGN-Implementation/data/debug_adj.h5'
 
     # ==================================================================================
     # Preprocess dataset files.
