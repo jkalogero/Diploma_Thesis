@@ -47,7 +47,7 @@ dataset:
   multiple_relations: false
   num_relations: 17
   max_edges: 45
-  max_nodes: 35
+  max_nodes: 45
 
 
 # Model related arguments
@@ -83,7 +83,7 @@ model:
   num_relations: 17
   multiple_relations: false
   max_edges: 45
-  max_nodes: 35
+  max_nodes: 45
 
 
 

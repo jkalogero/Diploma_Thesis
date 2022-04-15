@@ -50,7 +50,7 @@ parser.add_argument(
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(
-    "--adj-val-h5", default="data/adj_val_paths.h5",
+    "--adj-val-h5", default="data/val_adj_list.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(

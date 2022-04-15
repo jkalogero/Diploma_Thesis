@@ -219,24 +219,16 @@ class DialogsReader(object):
         return len(self.dialogs)
 
     def __getitem__(self, image_id: int) -> Dict[str, Union[int, str, List]]:
-        caption_for_image = self.captions[str(image_id)]
+        caption_for_image = self.captions[int(image_id)]
         dialog = copy.copy(self.dialogs[image_id])
         num_rounds = self.num_rounds[image_id]
 
         # Replace question and answer indices with actual word tokens.
         for i in range(len(dialog)):
-            dialog[i]["question"] = self.questions[
-                str(dialog[i]["question"])
-            ]
-            dialog[i]["answer"] = self.answers[
-                str(dialog[i]["answer"])
-            ]
-            for j, answer_option in enumerate(
-                dialog[i]["answer_options"]
-            ):
-                dialog[i]["answer_options"][j] = self.answers[
-                    str(answer_option)
-                ]
+            dialog[i]["question"] = self.questions[dialog[i]["question"]]
+            dialog[i]["answer"] = self.answers[dialog[i]["answer"]]
+            for j, answer_option in enumerate(dialog[i]["answer_options"]):
+                dialog[i]["answer_options"][j] = self.answers[answer_option]
 
         return {
             "image_id": image_id,
@@ -423,27 +415,20 @@ class AdjacencyListReader(object):
         |-- 0 (group, one for each round)
         |   |--adj_list (datasets)
         |   |--concepts (datasets)
-        |   |--original (datasets)
         |   
         |
         .
         .
         .
-        |-- 9
+        |-- num_rounds
             |--adj_list
             |--concepts
-            |--original
             
     """
 
     def __init__(self, adj_path:str, in_memory=False):
         self.adj_path = adj_path
-        # self.len = None
-        # print('before opening adj file')
-        # with h5py.File(self.adj_path, "r") as f:
-        #     self.len = len(list(f.keys()))
-        # print('after opening adj file')
-    
+        
     def __len__(self):
         # return self.len
         raise NotImplementedError
@@ -452,8 +437,7 @@ class AdjacencyListReader(object):
         adj_list = []
         with h5py.File(self.adj_path, "r") as f:
             for _round in f[str(image_id)].keys():
-                if _round != 'original_limit':
-                    adj_list.append(np.array(f[str(image_id)][_round]['adj_list']))
+                adj_list.append(np.array(f[str(image_id)][_round]['adj_list']))
         return adj_list
 
 

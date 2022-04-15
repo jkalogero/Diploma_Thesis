@@ -86,10 +86,10 @@ class KBGN(nn.Module):
         self.numb_embed = nn.Embedding(
             len(ext_graph_vocabulary), config["numberbatch_embedding_size"]
         )
-        print('len(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
+        self.ext_vocab = ext_graph_vocabulary
         self.numb_embed.weight.data = numberbatch
 
-        self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
+        # self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
@@ -148,7 +148,12 @@ class KBGN(nn.Module):
         # =============================================================
         # Embed external knowledge nodes
         # =============================================================
-        print('adj_list.shape = ', adj_list.shape)
+        # print('img = ', batch['img_ids'],'\n adj_list.shape = ', adj_list.shape)
+        # for node in adj_list[0][0]:
+        #     concepts = [self.ext_vocab.index2word[int(c)] for c in node]
+        #     print(concepts)
+        deg = torch.count_nonzero(adj_list,-1)
+        # deg.shape = [b, n_rounds, n_nodes]
         adj_list_emb = self.numb_embed(adj_list)
         # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
         
@@ -216,7 +221,9 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, batch_size)
+        ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size)
+        # ext_knowledge_emb.shape = (batch_size, n_rounds, n_nodes, emb_size)
+        # ext_knowledge_emb = torch.rand((batch_size, 10, 45, 512),device=t_rel.device)
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage

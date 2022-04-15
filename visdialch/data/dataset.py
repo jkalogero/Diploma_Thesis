@@ -39,7 +39,7 @@ class VisDialDataset(Dataset):
             config,
             num_examples=(5 if overfit else None),
             num_workers=num_workers,
-            load_dialog=True
+            load_dialog=False
         )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
@@ -70,6 +70,8 @@ class VisDialDataset(Dataset):
             self.image_ids = self.image_ids[:5]
         
         self.adj_list_reader = AdjacencyListReader(dialogs_adj)
+        with open(config['conceptnet_vocab_file'], "r", encoding="utf8") as fin:
+            self.id2concept = [w.strip() for w in fin]
 
 
     @property
@@ -82,6 +84,7 @@ class VisDialDataset(Dataset):
     def __getitem__(self, index):
         # Get image_id, which serves as a primary key for current instance.
         image_id = self.image_ids[index]
+        # print('image_id = ', image_id)
 
         # Get image features for this image_id using hdf reader.
         image_features,image_relation = self.hdf_reader[image_id]
@@ -141,10 +144,12 @@ class VisDialDataset(Dataset):
         
         # external knowledge
         adj_list = self.adj_list_reader[image_id]
-        for i_r in range(len(adj_list)):
-            for node in range(len(adj_list[i_r])):
-                adj_list[i_r][node] = self.ext_vocabulary.to_indices(adj_list[i_r][node])
+        
 
+        adj_list = adj_list if self.config['multiple_relations'] \
+            else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
+        adj_list_id = [[self.ext_vocabulary.to_indices([self.id2concept[c] for c in row]) for row in _round] for _round in adj_list]
+        
 
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
         # questions, history, etc. are converted to LongTensors, for nn.Embedding input.
@@ -161,8 +166,10 @@ class VisDialDataset(Dataset):
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(np.array(visdial_instance["num_rounds"])).long()
-        item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
-        item['adj_list'] = torch.tensor(np.array(item['adj_list'], dtype=np.float)).long()
+        # item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
+        # item['adj_list'] = adj_list_id
+
+        item['adj_list'] = torch.tensor(np.array(adj_list_id, dtype=np.float)).long()
         # print('item[adj_list].shape = ', item['adj_list'].shape)
         
 

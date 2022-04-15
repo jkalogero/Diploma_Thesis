@@ -2,24 +2,21 @@ import torch
 from torch import nn
 import math
 import numpy as np
+from torch.nn.functional import softmax
 
 numb = '/data/scratch/jkalogero/numberbatch_visdial.json.npy'
 
 class GraphConvolution(nn.Module):
     """
-    A simple GCN layer that takes as input adjacency list.
+    A simple GCN layer that takes as input an adjacency list.
     """
     def __init__(self, config):
         super(GraphConvolution, self).__init__()
         self.config = config
         self.w_adj = nn.Linear(config['numberbatch_dim'], config['numberbatch_dim'])
         self.w_gcn = nn.Linear(config['numberbatch_dim'] + config["lstm_hidden_size"], config["lstm_hidden_size"])
-
-        # self.w_q = nn.Linear(con)
-
-        # self.weight = nn.Parameter(torch.FloatTensor(config['numberbatch_dim'], config["lstm_hidden_size"]))
-        # self.register_parameter('bias', None)
-        # self.reset_parameters()
+        self.w_sum = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
+        
 
 
     def reset_parameters(self):
@@ -27,48 +24,25 @@ class GraphConvolution(nn.Module):
         self.weight.data.uniform_(-stdv, stdv)
         self.bias.data.uniform_(-stdv, stdv)
 
-    def forward(self, question, adj_list, batch_size, max_original_nodes=30, keep_original=True):
+    def forward(self, question, adj_list, node_degrees, batch_size, max_original_nodes=30, keep_original=True):
         """
         adj_list: shape = (b,n_nodes,max_rel_num, embedding_size)
         """
-        # support = torch.matmul(input, self.weight)
-        # output = torch.spmm(adj, support)
-        # print("adj_list.shape = ", adj_list.shape) # shape = (b, n_rounds, iniital_nodes, max_rel)
         
-        # deg = torch.count_nonzero(adj_list, -1)
-        # print("deg.shape = ", deg.shape)
-        # deg_inv_sqrt = deg.pow(-0.5) #shape = (b,n_nodes)
-        # we_d = torch.randn((4,4,3,1))
-        # we_dd = 
-        # print("deg_inv_sqrt.shape = ", deg_inv_sqrt.shape)
-        # adj_list shape = (b,n_rounds,n_nodes,n_rel)
-        # print('adj_list.shape = ', adj_list.shape)
+        deg_inv_sqrt = (1/node_degrees).unsqueeze(-1)
+        # shape = (b,n_rounds,n_nodes)
+
         adj_list = self.w_adj(adj_list)
-        # adj_list shape = (b,n_rounds,n_nodes,n_rel, numb_emb_size)
-        # question.shape: (b,n_rounds, 512)
+        # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
+
         question = question.view(batch_size, question.shape[1],1,1,question.shape[-1]).repeat(1,1,adj_list.shape[-3],adj_list.shape[-2],1)
-        # print('question.shape = ', question.shape)
+        
         adj_list_q = self.w_gcn(torch.cat((adj_list,question),-1))
-        # print('adj_list_q.shape = ', adj_list_q.shape)
-        node_embeddings = torch.sum(adj_list_q,-2) #shape = (b,n_nodes,emb_size)
-        # print('node_embeddings.shape = ', node_embeddings.shape)
+        # adj_list_q.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
 
-
-        # keep only original nodes
-        # if keep_original:
-        #     batch_size, n_rounds, n_nodes, emb_size = node_embeddings.shape
-        #     node_embeddings = node_embeddings.view(batch_size*n_rounds, n_nodes, emb_size)
-
-        #     original_mask = torch.zeros(node_embeddings.shape[0], node_embeddings.shape[1], dtype=node_embeddings.dtype, device=node_embeddings.device)
-        #     # assing 1 on the index of the original limit
-        #     original_mask[(torch.arange(node_embeddings.shape[0]), original_limit.view(batch_size*n_rounds))] = 1
-        #     # all values after limit will be one
-        #     original_mask = original_mask.cumsum(dim=1)
-
-        #     node_embeddings = node_embeddings * (1. - original_mask[..., None])     # use mask to zero after each column
-        #     node_embeddings = node_embeddings.view(batch_size, n_rounds, n_nodes, emb_size)
-        #     node_embeddings = node_embeddings[:,:,:max_original_nodes,:]
-            # node_embeddings.shape = (b, n_rounds, max_rel_nodes, emb_size)
+        node_embeddings = self.w_sum(deg_inv_sqrt * torch.sum(adj_list_q,-2)) 
+        node_embeddings = torch.softmax(node_embeddings, -1)
+        # node_embeddings.shape = (b,n_rounds,n_nodes,emb_size)
 
         return node_embeddings
 
