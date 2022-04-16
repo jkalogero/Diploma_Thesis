@@ -89,7 +89,7 @@ class KBGN(nn.Module):
         self.ext_vocab = ext_graph_vocabulary
         self.numb_embed.weight.data = numberbatch
 
-        # self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
+        self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
