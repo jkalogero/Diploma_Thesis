@@ -218,24 +218,17 @@ class DialogsReader(object):
         return len(self.dialogs)
 
     def __getitem__(self, image_id: int) -> Dict[str, Union[int, str, List]]:
-        caption_for_image = self.captions[str(image_id)]
+        caption_for_image = self.captions[int(image_id)]
         dialog = copy.copy(self.dialogs[image_id])
         num_rounds = self.num_rounds[image_id]
 
         # Replace question and answer indices with actual word tokens.
         for i in range(len(dialog)):
-            dialog[i]["question"] = self.questions[
-                str(dialog[i]["question"])
-            ]
-            dialog[i]["answer"] = self.answers[
-                str(dialog[i]["answer"])
-            ]
-            for j, answer_option in enumerate(
-                dialog[i]["answer_options"]
-            ):
-                dialog[i]["answer_options"][j] = self.answers[
-                    str(answer_option)
-                ]
+            dialog[i]["question"] = self.questions[dialog[i]["question"]]
+            dialog[i]["answer"] = self.answers[dialog[i]["answer"]]
+            for j, answer_option in enumerate(dialog[i]["answer_options"]):
+                dialog[i]["answer_options"][j] = self.answers[answer_option]
+
 
         return {
             "image_id": image_id,

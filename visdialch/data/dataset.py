@@ -36,7 +36,7 @@ class VisDialDataset(Dataset):
             config,
             num_examples=(5 if overfit else None),
             num_workers=num_workers,
-            load_dialog=True
+            load_dialog=load_dialog
         )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
