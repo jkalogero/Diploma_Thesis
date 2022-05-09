@@ -39,7 +39,7 @@ class VisDialDataset(Dataset):
             config,
             num_examples=(5 if overfit else None),
             num_workers=num_workers,
-            load_dialog=False
+            load_dialog=load_dialog
         )
 
         if "val" in self.split and dense_annotations_jsonpath is not None:
@@ -534,8 +534,9 @@ class VisDialDataset(Dataset):
         
         
         # Keep only the relevant relations: 
-        relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
-        relevant_indexes = [i + 34*node for node in range(n_nodes) for i in relevant_indexes_single]
+        # relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
+        relevant_indexes_single = [5,15]
+        relevant_indexes = [i*n_nodes + node for i in relevant_indexes_single for node in range(n_nodes)]
         adj_list = np.array(adj_list)[:,relevant_indexes,:]
         # For each round:
             # For each node:

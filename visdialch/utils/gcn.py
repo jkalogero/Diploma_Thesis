@@ -29,8 +29,16 @@ class GraphConvolution(nn.Module):
         adj_list: shape = (b,n_nodes,max_rel_num, embedding_size)
         """
         
-        deg_inv_sqrt = (1/node_degrees).unsqueeze(-1)
-        # shape = (b,n_rounds,n_nodes)
+        # deg_inv_sqrt = (node_degrees).unsqueeze(-1)
+        node_degrees=node_degrees.float()
+        node_degrees[node_degrees.nonzero(as_tuple=True)]= 1/node_degrees[node_degrees.nonzero(as_tuple=True)]
+        deg_inv_sqrt = node_degrees.unsqueeze(-1)
+        # shape = (b,n_rounds,n_nodes,1)
+
+        # deg_inv_sqrt = torch.randn((adj_list.shape[0], 10, 45, 1), device=adj_list.device)
+        # print('node_degrees[0][0] = ', node_degrees[0][0])
+        # print('deg_inv_sqrt[0][0][0] = ', deg_inv_sqrt[0][0][0])
+        # print('_deg_inv_sqrt[0][0][0] = ', _deg_inv_sqrt[0][0][0])
 
         adj_list = self.w_adj(adj_list)
         # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
@@ -38,8 +46,9 @@ class GraphConvolution(nn.Module):
         question = question.view(batch_size, question.shape[1],1,1,question.shape[-1]).repeat(1,1,adj_list.shape[-3],adj_list.shape[-2],1)
         
         adj_list_q = self.w_gcn(torch.cat((adj_list,question),-1))
-        # adj_list_q.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
+        # adj_list_q.shape = [b, n_rounds, n_nodes, n_rel, lstm_hidden_size]
 
+        # node_embeddings = self.w_sum(torch.sum(adj_list_q,-2)) 
         node_embeddings = self.w_sum(deg_inv_sqrt * torch.sum(adj_list_q,-2)) 
         node_embeddings = torch.softmax(node_embeddings, -1)
         # node_embeddings.shape = (b,n_rounds,n_nodes,emb_size)

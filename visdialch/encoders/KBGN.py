@@ -51,7 +51,7 @@ class KBGN(nn.Module):
         
         self.elmo_embed.weight.data = elmo
         # self.glove_embed.weight.requires_grad = False
-        self.elmo_embed.weight.requires_grad = False
+        # self.elmo_embed.weight.requires_grad = False ## ??
 
         self.embed_change = nn.Linear(
             config["elmo_embedding_size"],config["word_embedding_size"]
@@ -88,6 +88,7 @@ class KBGN(nn.Module):
         )
         self.ext_vocab = ext_graph_vocabulary
         self.numb_embed.weight.data = numberbatch
+        # self.numb_embed.weight.requires_grad = False
 
         self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
 
@@ -116,10 +117,10 @@ class KBGN(nn.Module):
         ques_embed_elmo = self.dropout(ques_embed_elmo)
         ques_embed_elmo = self.embed_change(ques_embed_elmo)
         ques_embed = torch.cat((ques_embed_emb,ques_embed_elmo),-1)
+
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
-        # print("ques_embed.shape = ", ques_embed.shape)
         ques_embed = ques_embed.view(batch_size, num_rounds, -1)
-        print('ques_embed.shape = ', ques_embed.shape)
+        # ques_embed.shape = (b, n_rounds, emb_size)
         
         
         # =============================================================

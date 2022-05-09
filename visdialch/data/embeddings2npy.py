@@ -62,9 +62,9 @@ def main():
         min_count=0)
 
     emb_path_list = [
-        (config["dataset"]["glovepath"], DATA_DIR+'glove_visdial.json', 'glove'),
-        (config["dataset"]["elmopath"], DATA_DIR+'elmo_visdial.json', 'elmo'),
-        (config["dataset"]["numberbatchpath"], DATA_DIR+'numberbatch_visdial.json', 'numberbatch')]
+        (config["dataset"]["glovepath"], DATA_DIR+'glove_visdial.npy', 'glove'),
+        (config["dataset"]["elmopath"], DATA_DIR+'elmo_visdial.npy', 'elmo'),
+        (config["dataset"]["numberbatchpath"], DATA_DIR+'numberbatch_visdial.npy', 'numberbatch')]
     for (pth, name, emb_name) in tqdm(emb_path_list):
         if emb_name == 'numberbatch':
             embeddings2npy(pth, name, ext_knowledge_dataset_vocabulary, emb_name)    
