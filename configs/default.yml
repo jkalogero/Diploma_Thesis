@@ -85,7 +85,11 @@ model:
   max_edges: 45
   max_nodes: 45
 
-
+  # external knowledge gnn related arguments
+  gnn: 'gcn'
+  slope: 0.01 # default value: 0.01
+  n_heads: 8 # used only in gat
+  gnn_dropout: 0.1
 
 # Optimization related arguments
 solver:

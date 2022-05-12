@@ -264,7 +264,8 @@ scheduler2 = lr_scheduler.CosineAnnealingLR(optimizer, int(T), eta_min=config["s
 # ================================================================================================
 
 summary_writer = SummaryWriter(log_dir=args.save_dirpath)
-checkpoint_manager = CheckpointManager(model, optimizer, args.save_dirpath, config=config)
+save_dir = 'data/debug_checkpoints' if args.overfit else args.save_dirpath # overwrite save_dir argument for safety
+checkpoint_manager = CheckpointManager(model, optimizer, save_dir, config=config)
 sparse_metrics = SparseGTMetrics()
 ndcg = NDCG()
 

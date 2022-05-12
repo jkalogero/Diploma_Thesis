@@ -6,8 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 from visdialch.utils.knowledge_encoding import KnowledgeEncoding
 from visdialch.utils.knowledge_storage import KnowledgeStorage
 from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
-from visdialch.utils.gcn import GraphConvolution
-from visdialch.utils.rgcn import RelationalGraphConvolutionalNetwork
+from visdialch.gnn import GNN
 
 class KBGN(nn.Module):
     def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, numberbatch):
@@ -90,7 +89,7 @@ class KBGN(nn.Module):
         self.numb_embed.weight.data = numberbatch
         # self.numb_embed.weight.requires_grad = False
 
-        self.gnn = GraphConvolution(config) if not config['multiple_relations'] else RelationalGraphConvolutionalNetwork(config)
+        self.gnn = GNN(config)
 
         self.KnowldgeEncoder = KnowledgeEncoding(config)
         self.KnowldgeStorage = KnowledgeStorage(config)
