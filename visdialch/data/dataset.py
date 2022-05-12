@@ -166,11 +166,14 @@ class VisDialDataset(Dataset):
         item["ans_len"] = torch.tensor(answer_lengths).long()
         # item["opt_len"] = torch.tensor(answer_option_lengths).long()
         item["num_rounds"] = torch.tensor(np.array(visdial_instance["num_rounds"])).long()
-        # item['adj_list'] = adj_list if self.config['multiple_relations'] else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
-        # item['adj_list'] = adj_list_id
-
-        item['adj_list'] = torch.tensor(np.array(adj_list_id, dtype=np.float)).long()
-        # print('item[adj_list].shape = ', item['adj_list'].shape)
+        
+        adj_list_id = np.array(adj_list_id, dtype=np.float)
+        # if test split pad rounds
+        if "test" in self.split:
+            adj_list_id=np.pad(adj_list_id, ((0,10-item["num_rounds"]), (0,0), (0,0)))
+            
+        
+        item['adj_list'] = torch.tensor(adj_list_id).long()
         
 
         if self.return_options:
@@ -229,7 +232,7 @@ class VisDialDataset(Dataset):
             item["gt_relevance"] = torch.tensor(dense_annotations["gt_relevance"]).float()
             item["round_id"] = torch.tensor(dense_annotations["round_id"]).long()
 
-        # print('EXITING GETITEM')
+        
         return item
 
     def _pad_sequences(self, sequences: List[List[int]]):

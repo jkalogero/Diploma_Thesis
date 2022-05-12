@@ -44,11 +44,11 @@ parser.add_argument(
     help="Path to VisDial v1.0 test data. This argument doesn't work when --split=val."
 )
 parser.add_argument(
-    "--adj-val-h5", default="data/adj_val_paths.h5",
+    "--adj-val-h5", default="data/val_adj_list.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 parser.add_argument(
-    "--adj-test-h5", default="data/adj_test_paths.h5",
+    "--adj-test-h5", default="data/test_adj_list.h5",
     help="Path to pickle file containing adjacency matrices for each dialog."
 )
 
@@ -130,6 +130,7 @@ if args.split == "val":
         config["dataset"], 
         args.val_json, 
         args.adj_val_h5,
+        dense_annotations_jsonpath=args.val_dense_json, 
         overfit=args.overfit,
         in_memory=args.in_memory,
         num_workers=args.cpu_workers,
@@ -166,7 +167,7 @@ glove_token = torch.Tensor(np.load(config["dataset"]["glove_visdial_path"])).vie
 # Read ELMo word embedding data
 elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(len(dataset_vocabulary), -1)
 
-numb_token = torch.Tensor(np.load(config["dataset"]["val_numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
+numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
 
 # Pass vocabulary to construct Embedding layer.
 
