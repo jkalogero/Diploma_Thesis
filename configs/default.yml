@@ -87,7 +87,7 @@ model:
 
   # external knowledge gnn related arguments
   gnn: 'gcn'
-  slope: 0.01 # default value: 0.01
+  slope: 0.2 # as in paper
   n_heads: 8 # used only in gat
   gnn_dropout: 0.1
 

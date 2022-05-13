@@ -49,8 +49,8 @@ class KBGN(nn.Module):
         )
         
         self.elmo_embed.weight.data = elmo
-        # self.glove_embed.weight.requires_grad = False
-        # self.elmo_embed.weight.requires_grad = False ## ??
+        self.glove_embed.weight.requires_grad = False
+        self.elmo_embed.weight.requires_grad = False 
 
         self.embed_change = nn.Linear(
             config["elmo_embedding_size"],config["word_embedding_size"]
@@ -87,7 +87,7 @@ class KBGN(nn.Module):
         )
         self.ext_vocab = ext_graph_vocabulary
         self.numb_embed.weight.data = numberbatch
-        # self.numb_embed.weight.requires_grad = False
+        self.numb_embed.weight.requires_grad = False
 
         self.gnn = GNN(config)
 
