@@ -40,8 +40,8 @@ WORKING_DIR = os.getcwd()
 DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
 
 
-# splits = ['train', 'val', 'test']
-splits = ['train']
+splits = ['test']
+# splits = ['train']
 
 dataset_paths = {
     'train': DATA_DIR + 'visdial_1.0_train.json',
@@ -235,8 +235,8 @@ def main():
     args = parser.parse_args()
 
     if args.n != '0':
-        grounded['train'] = DATA_DIR + 'train_grounded_part_'+str(args.n)+'.json'
-        sub_graphs_adj['train'] = DATA_DIR + 'train_adj_list_part_'+str(args.n)+'.h5'
+        # grounded['train'] = DATA_DIR + 'train_grounded_part_'+str(args.n.split('_')[0])+'.json'
+        sub_graphs_adj['test'] = DATA_DIR + 'test_adj_list_part_'+str(args.n)+'.h5'
 
     # Print args.
     for arg in vars(args):
@@ -360,7 +360,9 @@ def main():
                 pad_transe_ent,
                 transe_rel,
                 args.prune_threshold,
-                sub_graphs_adj[split]
+                sub_graphs_adj[split],
+                args.n
+                # args.n.split('_')[1]
                 )
         print("--- Completed generating subgraphs in %s seconds. ---" % (time.time() - start_time))
 

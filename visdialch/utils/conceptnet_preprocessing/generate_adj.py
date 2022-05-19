@@ -251,7 +251,7 @@ def _generateAdj(data_list):
     
     
 
-def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_path, rel_emb_path, prune_threshold, output_path):
+def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_path, rel_emb_path, prune_threshold, output_path, part=None):
     """
     Generate adjacency matrices in COO format (R*N, N), where
     R: number of relations, N: number of nodes
@@ -281,7 +281,13 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
     
     data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
         for img_id, dialog in grounded_concepts.items()]
-    
+    if part:
+        if part =='1':
+            data_list = data_list[:3000]  
+        elif part =='2':
+            data_list = data_list[3000:6000]  
+        else:
+            data_list = data_list[6000:]
     # sample = ['378466', '332243', '378461', '287140', '575029','525211']
     # sample = ['378466']
     # data_list = [(img_id, [[concept2id[c] for c in _round] for _round in dialog]) \
@@ -295,7 +301,7 @@ def generateAdj(grounded_path, cpnet_graph_path, cpnet_vocab_path,concept_emb_pa
 
 
     with Pool() as p:
-        res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,80), total=len(grounded_concepts), desc='Generating adj matrices..')}
+        res = {k:v for (k,v) in tqdm(p.imap(_generateAdj,data_list,50), total=len(data_list), desc='Generating adj matrices..')}
     
 
     h = h5py.File(output_path,'w')
