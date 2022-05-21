@@ -17,7 +17,7 @@ dataset:
 
   elmo_visdial_path: 'data/elmo_visdial.json.npy'
   glove_visdial_path: 'data/glove_visdial.json.npy'
-  numberbatch_visdial_path: 'data/numberbatch_visdial.json.npy'
+  numberbatch_visdial_path: 'data/numberbatch_visdial.npy'
   # numberbatch_visdial_path: 'data/debug_numberbatch_visdial.json.npy'
 
   
@@ -48,7 +48,7 @@ dataset:
   num_relations: 17
   max_edges: 45
   max_nodes: 45
-
+  return_original: true
 
 # Model related arguments
 model:
@@ -84,9 +84,10 @@ model:
   multiple_relations: false
   max_edges: 45
   max_nodes: 45
+  return_original: true
 
   # external knowledge gnn related arguments
-  gnn: 'gcn'
+  gnn: 'gat'
   slope: 0.2 # as in paper
   n_heads: 8 # used only in gat
   gnn_dropout: 0.1

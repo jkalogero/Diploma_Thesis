@@ -1,3 +1,4 @@
+from distutils.command.config import config
 from typing import Any, Dict, List, Optional, Union
 from tqdm import tqdm
 import numpy as np
@@ -144,8 +145,13 @@ class VisDialDataset(Dataset):
         
         # external knowledge
         adj_list = self.adj_list_reader[image_id]
-        
 
+        if self.config['return_original']:
+            self_rel = 34
+            original_indexes = [self_rel*self.config['max_nodes'] + node for node in range(self.config['max_nodes'])]
+            original_nodes = np.array(adj_list)[:,original_indexes,0]
+            original_nodes_id = [self.ext_vocabulary.to_indices([self.id2concept[c] for c in _round]) for _round in original_nodes]
+        
         adj_list = adj_list if self.config['multiple_relations'] \
             else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
         adj_list_id = [[self.ext_vocabulary.to_indices([self.id2concept[c] for c in row]) for row in _round] for _round in adj_list]
@@ -174,7 +180,9 @@ class VisDialDataset(Dataset):
             
         
         item['adj_list'] = torch.tensor(adj_list_id).long()
-        
+        # return original nodes
+        if self.config['return_original']:
+            item['original_nodes'] = torch.tensor(original_nodes_id).long()
 
         if self.return_options:
             if self.add_boundary_toks:
@@ -538,8 +546,8 @@ class VisDialDataset(Dataset):
         
         # Keep only the relevant relations: 
         # relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
-        relevant_indexes_single = [5,15]
-        relevant_indexes = [i*n_nodes + node for i in relevant_indexes_single for node in range(n_nodes)]
+        relevant_indexes_single = [5,15, 22, 32]
+        relevant_indexes = [i*n_nodes + node for i in relevant_indexes_single for node in range(n_nodes)] # CHECK
         adj_list = np.array(adj_list)[:,relevant_indexes,:]
         # For each round:
             # For each node:

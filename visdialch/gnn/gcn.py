@@ -24,7 +24,7 @@ class GraphConvolution(nn.Module):
         self.weight.data.uniform_(-stdv, stdv)
         self.bias.data.uniform_(-stdv, stdv)
 
-    def forward(self, question, adj_list, node_degrees, batch_size, max_original_nodes=30, keep_original=True):
+    def forward(self, question, adj_list, node_degrees, batch_size, max_original_nodes=30, original_nodes=None, keep_original=True):
         """
         adj_list: shape = (b,n_nodes,max_rel_num, embedding_size)
         """

@@ -157,6 +157,11 @@ class KBGN(nn.Module):
         adj_list_emb = self.numb_embed(adj_list)
         # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
         
+        original_nodes_emb = None
+        if 'original_nodes' in batch:
+            original_nodes = batch['original_nodes']
+            original_nodes_emb = self.numb_embed(original_nodes)
+
         # =============================================================
         # Construct semantic graph
         # =============================================================
@@ -221,7 +226,8 @@ class KBGN(nn.Module):
         # print("third round")
         # print(text_rel[0][2])
         
-        ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size)
+        ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb)
+        assert ext_knowledge_emb.shape == (batch_size, num_rounds, self.config["max_nodes"], self.config["lstm_hidden_size"])
         # ext_knowledge_emb.shape = (batch_size, n_rounds, n_nodes, emb_size)
         # ext_knowledge_emb = torch.rand((batch_size, 10, 45, 512),device=t_rel.device)
         # Knowledge Encoding

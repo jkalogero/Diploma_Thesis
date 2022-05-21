@@ -1,11 +1,11 @@
 from visdialch.gnn.gcn import GraphConvolution
-from visdialch.gnn.gat import GAT
-from visdialch.gnn.rgcn import RelationalGraphConvolutionalNetwork
+from visdialch.gnn.gat import GraphAttentionNetwork
+from visdialch.gnn.rgcn import RelationalGraphConvolution
 
 def GNN(model_config, *args):
     name_gnn_map = {
         'gcn': GraphConvolution,
-        'gat': GAT,
-        'rgcn':  RelationalGraphConvolutionalNetwork
+        'gat': GraphAttentionNetwork,
+        'rgcn':  RelationalGraphConvolution
     }
     return name_gnn_map[model_config["gnn"]](model_config, *args)
