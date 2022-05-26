@@ -182,6 +182,8 @@ class VisDialDataset(Dataset):
         item['adj_list'] = torch.tensor(adj_list_id).long()
         # return original nodes
         if self.config['return_original']:
+            # pad rounds
+            original_nodes_id = np.pad(original_nodes_id, ((0,10-item["num_rounds"]), (0,0)))
             item['original_nodes'] = torch.tensor(original_nodes_id).long()
 
         if self.return_options:

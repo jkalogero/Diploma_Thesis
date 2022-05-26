@@ -225,11 +225,12 @@ class KBGN(nn.Module):
         # print(text_rel[0][1])
         # print("third round")
         # print(text_rel[0][2])
-        
+
+        # GNN on extrnal knowledge graph
         ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb)
         assert ext_knowledge_emb.shape == (batch_size, num_rounds, self.config["max_nodes"], self.config["lstm_hidden_size"])
         # ext_knowledge_emb.shape = (batch_size, n_rounds, n_nodes, emb_size)
-        # ext_knowledge_emb = torch.rand((batch_size, 10, 45, 512),device=t_rel.device)
+
         # Knowledge Encoding
         updated_v_nodes, updated_t_nodes = self.KnowldgeEncoder(img, ques_embed, v_relations, f_history, text_rel, batch_size, num_rounds)
         # Knowledge Storage
