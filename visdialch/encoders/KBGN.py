@@ -34,7 +34,7 @@ class KBGN(nn.Module):
         
         self.elmo_embed.weight.data = elmo
         # self.glove_embed.weight.requires_grad = False
-        self.elmo_embed.weight.requires_grad = False
+        # self.elmo_embed.weight.requires_grad = False
 
         self.embed_change = nn.Linear(
             config["elmo_embedding_size"],config["word_embedding_size"]
