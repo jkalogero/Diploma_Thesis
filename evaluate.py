@@ -113,7 +113,8 @@ args = parser.parse_args()
 config = yaml.load(open(args.config_yml))
 
 if isinstance(args.gpu_ids, int): args.gpu_ids = [args.gpu_ids]
-device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+# device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
+device=torch.device("cpu")
 
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
@@ -182,8 +183,8 @@ print("Decoder: {}".format(config["model"]["decoder"]))
 
 # Wrap encoder and decoder in a model.
 model = EncoderDecoderModel(encoder, decoder).to(device)
-if -1 not in args.gpu_ids:
-    model = nn.DataParallel(model, args.gpu_ids)
+# if -1 not in args.gpu_ids:
+#     model = nn.DataParallel(model, args.gpu_ids)
 
 model_state_dict, _ = load_checkpoint(args.load_pthpath)
 if isinstance(model, nn.DataParallel):
@@ -205,6 +206,7 @@ ranks_json = []
 
 for _, batch in enumerate(tqdm(val_dataloader)):
     for key in batch:
+        print('device = ', device)
         batch[key] = batch[key].to(device)
     with torch.no_grad():
         output = model(batch)

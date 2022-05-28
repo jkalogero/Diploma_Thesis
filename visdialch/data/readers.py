@@ -91,8 +91,12 @@ class DialogsReader(object):
             self.num_rounds[_dialog["image_id"]] = len(_dialog["dialog"])
             # Pad dialog at the end with empty question and answer pairs
             # (for test split).
+            # print('_dialog["dialog"]: ', _dialog["dialog"])
+            # extra_rounds = 10 - len(_dialog["dialog"])
+            # _dialog["dialog"] = [ _dialog["dialog"][0]]*(extra_rounds-1) +  _dialog["dialog"]
             while len(_dialog["dialog"]) < 10:
                 _dialog["dialog"].append({"question": -1, "answer": -1})
+            # print('AFTER _dialog["dialog"]: ', _dialog["dialog"])
 
             # Add empty answer (and answer options) if not provided
             # (for test split). We use "-1" as a key for empty questions
@@ -225,6 +229,7 @@ class DialogsReader(object):
 
         # Replace question and answer indices with actual word tokens.
         for i in range(len(dialog)):
+            # print(dialog[i])
             dialog[i]["question"] = self.questions[dialog[i]["question"]]
             dialog[i]["answer"] = self.answers[dialog[i]["answer"]]
             for j, answer_option in enumerate(dialog[i]["answer_options"]):

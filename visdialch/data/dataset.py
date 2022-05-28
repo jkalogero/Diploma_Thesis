@@ -164,6 +164,7 @@ class VisDialDataset(Dataset):
         item["img_feat"] = image_features
         item["relations"] = image_relation
         item["ques"] = questions.long()
+        # print('QUESTION\n\n', item["ques"])
         item["hist"] = history.long()
         item["ans_in"] = answers_in.long()
         item["ans_out"] = answers_out.long()

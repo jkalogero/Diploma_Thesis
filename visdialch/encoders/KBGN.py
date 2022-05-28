@@ -227,6 +227,10 @@ class KBGN(nn.Module):
         # print(text_rel[0][2])
 
         # GNN on extrnal knowledge graph
+        print('original_nodes_emb: ')
+        for d in original_nodes_emb:
+            for i,r in enumerate(d):
+                print('round ', i, ':\n',r)
         ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb)
         assert ext_knowledge_emb.shape == (batch_size, num_rounds, self.config["max_nodes"], self.config["lstm_hidden_size"])
         # ext_knowledge_emb.shape = (batch_size, n_rounds, n_nodes, emb_size)
