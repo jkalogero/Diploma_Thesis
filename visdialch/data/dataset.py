@@ -548,7 +548,7 @@ class VisDialDataset(Dataset):
         
         # Keep only the relevant relations: 
         # relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
-        relevant_indexes_single = [5,15, 22, 32]
+        relevant_indexes_single = [15]
         relevant_indexes = [i*n_nodes + node for i in relevant_indexes_single for node in range(n_nodes)] # CHECK
         adj_list = np.array(adj_list)[:,relevant_indexes,:]
         # For each round:
