@@ -15,6 +15,10 @@ class EncoderDecoderModel(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
+    def update_epoch(self, epoch):
+        self.encoder.update_epoch(epoch)
+
+
     def forward(self, batch):
         encoder_output = self.encoder(batch)
         decoder_output = self.decoder(encoder_output, batch)

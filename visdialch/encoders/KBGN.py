@@ -95,7 +95,10 @@ class KBGN(nn.Module):
         self.KnowldgeStorage = KnowledgeStorage(config)
         self.KnowldgeRetrieval = KnowledgeRetrieval(config)
 
+        self.current_epoch = 0
 
+    def update_epoch(self, epoch):
+         self.current_epoch = epoch
 
     def forward(self, batch):
         # Get data
@@ -227,6 +230,9 @@ class KBGN(nn.Module):
         # print(text_rel[0][2])
 
         # GNN on extrnal knowledge graph
+        if self.current_epoch > self.config["epoch_freeze_gnn"]:
+            print('EPOCH: ', self.current_epoch)
+            self.gnn.requires_grad_(False)
         ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb)
         assert ext_knowledge_emb.shape == (batch_size, num_rounds, self.config["max_nodes"], self.config["lstm_hidden_size"])
         # ext_knowledge_emb.shape = (batch_size, n_rounds, n_nodes, emb_size)
