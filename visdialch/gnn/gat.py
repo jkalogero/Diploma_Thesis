@@ -28,9 +28,11 @@ class GraphAttentionLayer(nn.Module):
         self.leakyrelu = nn.LeakyReLU(self.slope)
 
     def forward(self, adj_list, original_nodes, ques_embed):
-        # original_nodes.shape: (b,n_rounds, n_nodes, numb_emb)
-        # adj_list.shape: (b,n_rounds, n_nodes, n_neighbours, numb_emb)
-        # ques_embed.shape: (b,n_rounds, lstm_hidden_size)
+        """
+        original_nodes.shape: (b,n_rounds, n_nodes, numb_emb)
+        adj_list.shape: (b,n_rounds, n_nodes, n_neighbours, numb_emb)
+        ques_embed.shape: (b,n_rounds, lstm_hidden_size)
+        """
         w_original = torch.matmul(original_nodes, self.W) # (b,n_rounds, n_nodes, lstm_hidden_size)
         Wh = torch.matmul(adj_list, self.W) # (b,n_rounds, n_nodes, n_edges, lstm_hidden_size)
 

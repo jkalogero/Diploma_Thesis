@@ -231,7 +231,6 @@ class KBGN(nn.Module):
 
         # GNN on extrnal knowledge graph
         if self.current_epoch > self.config["epoch_freeze_gnn"]:
-            print('EPOCH: ', self.current_epoch)
             self.gnn.requires_grad_(False)
         ext_knowledge_emb = self.gnn(ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb)
         assert ext_knowledge_emb.shape == (batch_size, num_rounds, self.config["max_nodes"], self.config["lstm_hidden_size"])
