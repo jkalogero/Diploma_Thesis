@@ -120,7 +120,13 @@ class RelationalGraphConvolution(Module):
             raise NotImplementedError(f'{reset_mode} parameter initialisation method has not been implemented')
 
     def forward(self, ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb): # features
-        """ Perform a single pass of message propagation """
+        """ Perform a single pass of message propagation
+
+        original_nodes.shape: (b,n_rounds, n_nodes, numb_emb)
+        adj_list.shape: (b,n_rounds, n_nodes, n_neighbours, numb_emb)
+        ques_embed.shape: (b,n_rounds, lstm_hidden_size)
+        
+        """
 
 
         in_dim = self.in_features
@@ -155,7 +161,7 @@ class RelationalGraphConvolution(Module):
         num_triples = adj_indices.size(0)
         vals = torch.ones(num_triples, dtype=torch.float, device=device)
 
-        # Apply normalization (vertical-stacking -> row-wise sum & horizontal-stacking -> column-wise sum)
+        # Apply normalization - compute the weights W_r^(l)
         sums = sum_sparse(adj_indices, vals, adj_size, row_normalisation=vertical_stacking, device=device)
         
         vals = vals / sums
@@ -177,9 +183,9 @@ class RelationalGraphConvolution(Module):
         #     output = torch.mm(adj, fw)
         if self.vertical_stacking:
             # Message passing if the adjacency matrix is vertically stacked
-            af = torch.spmm(adj, features)
+            af = torch.spmm(adj, features) # first sum
             af = af.view(self.num_relations, self.num_nodes, in_dim)
-            output = torch.einsum('rio, rni -> no', weights, af)
+            output = torch.einsum('rio, rni -> no', weights, af) # second sum
         
         # else:
         #     # Message passing if the adjacency matrix is horizontally stacked
