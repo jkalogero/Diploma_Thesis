@@ -152,7 +152,8 @@ class VisDialDataset(Dataset):
             original_nodes = np.array(adj_list)[:,original_indexes,0]
             original_nodes_id = [self.ext_vocabulary.to_indices([self.id2concept[c] for c in _round]) for _round in original_nodes]
         
-        adj_list = adj_list if self.config['multiple_relations'] \
+        # adj_list = [[el[:self.config['max_edges']] for el in r] for r in adj_list] if self.config['multiple_relations'] \
+        adj_list = self.select_relations(adj_list, self.config['max_nodes'], self.config['max_edges']) if self.config['multiple_relations'] \
             else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
         adj_list_id = [[self.ext_vocabulary.to_indices([self.id2concept[c] for c in row]) for row in _round] for _round in adj_list]
         
@@ -185,6 +186,7 @@ class VisDialDataset(Dataset):
             # pad rounds
             original_nodes_id = np.pad(original_nodes_id, ((0,10-item["num_rounds"]), (0,0)))
             item['original_nodes'] = torch.tensor(original_nodes_id).long()
+            # print("item['original_nodes']: ", item['original_nodes'])
 
         if self.return_options:
             if self.add_boundary_toks:
@@ -543,6 +545,9 @@ class VisDialDataset(Dataset):
         
         n_nodes: int
             The number of nodes in the graph.
+
+        max_edges: int
+            The number of maximum neighbours for each node in the graph.
         """
         
         
@@ -561,3 +566,29 @@ class VisDialDataset(Dataset):
                 for r in adj_list]
                         
         return merged
+
+
+    def select_relations(self, adj_list, n_nodes, max_edges):
+        """
+        Function to keep only some of the relations in the adjacency list.
+
+        Parameters:
+        ===========
+
+        adj_list: List[List[List[int]]] shape: (n_rounds, RxV, E)
+            The initial multirelational adjacency list, optionally padded with zeros.
+        
+        n_nodes: int
+            The number of nodes in the graph.
+
+        max_edges: int
+            The number of maximum neighbours for each node in the graph.
+        """
+        
+        
+        selected_relations = [0,1,2,3,5,6,7,8,10,15,16]
+        selected_relations +=[17+el for el in selected_relations] + [34]
+        selected_rows = [i*n_nodes + node for i in selected_relations for node in range(n_nodes)] # CHECK
+
+        adj_list = np.array(adj_list)[:,selected_rows,:max_edges]
+        return adj_list

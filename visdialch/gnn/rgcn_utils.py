@@ -68,7 +68,7 @@ def drop_edges(triples, num_nodes, general_edo, self_loop_edo):
 
     return triples[ind, :]
 
-def sum_sparse(indices, values, size, row_normalisation=True, device='cpu'):
+def sum_sparse(indices, values, size):
     """
     Sum the rows or columns of a sparse matrix, and redistribute the
     results back to the non-sparse row/column entries
@@ -80,7 +80,7 @@ def sum_sparse(indices, values, size, row_normalisation=True, device='cpu'):
 
     k, r = indices.size()
 
-    ones = torch.ones((size[1], 1), device=device)
+    ones = torch.ones((size[1], 1))
     values = torch.cuda.sparse.FloatTensor(indices.t(), values, torch.Size(size))
     sums = torch.spmm(values, ones)
     sums = sums[indices[:, 0], 0]

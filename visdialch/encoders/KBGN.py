@@ -122,7 +122,7 @@ class KBGN(nn.Module):
 
         _, (ques_embed, _) = self.q_rnn(ques_embed, batch["ques_len"])
         ques_embed = ques_embed.view(batch_size, num_rounds, -1)
-        # ques_embed.shape = (b, n_rounds, emb_size)
+        # ques_embed.shape = (b, n_rounds*n_rel, emb_size)
         
         
         # =============================================================
@@ -151,10 +151,6 @@ class KBGN(nn.Module):
         # =============================================================
         # Embed external knowledge nodes
         # =============================================================
-        # print('img = ', batch['img_ids'],'\n adj_list.shape = ', adj_list.shape)
-        # for node in adj_list[0][0]:
-        #     concepts = [self.ext_vocab.index2word[int(c)] for c in node]
-        #     print(concepts)
         deg = torch.count_nonzero(adj_list,-1)
         # deg.shape = [b, n_rounds, n_nodes]
         adj_list_emb = self.numb_embed(adj_list)
@@ -197,37 +193,23 @@ class KBGN(nn.Module):
                 f_history = torch.cat((f_history, maxpadded_history), 0)
         
         
-        # print("HIST = ", f_history.shape)   
+        
         # f_history.shape = (b, n_rounds, n_rounds, 512)
         # Create semantic relationships
         t_rel = f_history.view(batch_size, num_rounds, num_rounds, 1, self.config["lstm_hidden_size"]).repeat(1,1, 1, num_rounds, 1)
-        # print("t_rel.shape = ", t_rel.shape)
-        mask1 = t_rel.abs().sum(dim=-1).bool()
-        # print(mask1.shape)
-        tmp = f_history.view(batch_size, num_rounds, 1,  num_rounds, self.config["lstm_hidden_size"]).repeat(1,1, num_rounds, 1, 1)
-        # print("tmp.shape = ", tmp.shape)
-        mask2 = tmp.abs().sum(dim=-1).bool()
-        # print(mask2.shape)
 
-        # 
+        mask1 = t_rel.abs().sum(dim=-1).bool()
+
+        tmp = f_history.view(batch_size, num_rounds, 1,  num_rounds, self.config["lstm_hidden_size"]).repeat(1,1, num_rounds, 1, 1)
+
+        mask2 = tmp.abs().sum(dim=-1).bool()
+
+
         t_rel[~mask2] = torch.zeros((self.config["lstm_hidden_size"]), device=t_rel.device)
         tmp[~mask1] = torch.zeros((self.config["lstm_hidden_size"]), device=tmp.device)
         text_rel = torch.cat((t_rel, tmp), -1)
-        # delete
-        # del t_rel
-        # del tmp
-
-        # text_rel.shape = (4, 10, 10, 10, 1024)
         
-        # torch.set_printoptions(threshold=10_000)
-        # torch.set_printoptions(linewidth=200)
-        # print("text_rel.shape = ", text_rel.shape)
-        # print("first round")
-        # print(text_rel[0][0])
-        # print("second round")
-        # print(text_rel[0][1])
-        # print("third round")
-        # print(text_rel[0][2])
+        
 
         # GNN on extrnal knowledge graph
         if self.current_epoch > self.config["epoch_freeze_gnn"]:

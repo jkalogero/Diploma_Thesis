@@ -44,7 +44,7 @@ dataset:
   caption_round_num: 6
   caption_maxlen_each: 14
 
-  multiple_relations: false
+  multiple_relations: true
   num_relations: 17
   max_edges: 45
   max_nodes: 45
@@ -81,19 +81,22 @@ model:
   caption_change_num: 256
 
   num_relations: 17
-  multiple_relations: false
+  reduced_num_relations: 11
+  multiple_relations: true
   max_edges: 45
   max_nodes: 45
   return_original: true
 
   # external knowledge gnn related arguments
-  gnn: 'gat'
+  gnn: 'rgcn'
   slope: 0.2 # as in paper
   n_heads: 8 # used only in gat
   gnn_dropout: 0.1
   decomposition_type: 'basis'
-  num_bases:
-  num_blocks:
+  num_bases: 40
+  # num_blocks:
+  epoch_freeze_gnn: 1
+  
 
 # Optimization related arguments
 solver:

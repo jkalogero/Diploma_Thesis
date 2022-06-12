@@ -15,61 +15,26 @@ class RelationalGraphConvolution(Module):
     """
     def __init__(self,
                 config,
-                triples=None,
                 bias=True,
-                diag_weight_matrix=False,
                 reset_mode='glorot_uniform'):
         super(RelationalGraphConvolution, self).__init__()
 
-        # If featureless, use number of nodes instead as input dimension
-        # in_dim = in_features if in_features is not None else num_nodes
-        # out_dim = out_features
 
-        self.triples = triples
         self.num_nodes = config['max_nodes']
-        self.num_relations = config['num_relations']*2 + 1 # bidirectional + self relation
+        self.num_relations = config['reduced_num_relations']*2 + 1 # bidirectional + self relation
         self.in_features = config['numberbatch_embedding_size']
         self.out_features = config['lstm_hidden_size']
         self.weight_decomp = config['decomposition_type']
         self.num_bases = config['num_bases']
-        self.num_blocks = config['num_blocks']
         
-        self.diag_weight_matrix = diag_weight_matrix
         self.dropout = config['gnn_dropout']
 
-        # If diagonal matrix
-        if self.diag_weight_matrix:
-            self.weights = torch.nn.Parameter(torch.empty((self.num_relations, self.in_features)), requires_grad=True)
-            self.out_features = self.in_features
-            self.weight_decomp = None
-            bias = False
-
-        # Instantiate weights
-        elif self.weight_decomp is None:
-            self.weights = Parameter(torch.FloatTensor(self.num_relations, self.in_features, self.out_features))
         
-        # ===================================================================================
-        elif self.weight_decomp == 'basis':
-            # Weight Regularisation through Basis Decomposition
-            assert self.num_bases > 0, \
-                'Number of bases should be set to higher than zero for basis decomposition!'
-            
-            self.bases = Parameter(torch.FloatTensor(self.num_bases, self.in_dim, self.out_dim))
-            self.comps = Parameter(torch.FloatTensor(self.num_relations, self.num_bases))
+        # Weight Regularisation through Basis Decomposition
+        self.bases = Parameter(torch.FloatTensor(self.num_bases, self.in_features, self.out_features))
+        self.comps = Parameter(torch.FloatTensor(self.num_relations, self.num_bases))
+    
         
-        # ===================================================================================
-        elif self.weight_decomp == 'block':
-            # Weight Regularisation through Block Diagonal Decomposition
-            assert self.num_blocks > 0, \
-                'Number of blocks should be set to a value higher than zero for block diagonal decomposition!'
-            assert self.in_dim % self.num_blocks == 0 and self.out_dim % self.num_blocks == 0,\
-                f'For block diagonal decomposition, input dimensions ({self.in_dim}, {self.out_dim}) must be divisible ' \
-                f'by number of blocks ({self.num_blocks})'
-            self.blocks = nn.Parameter(
-                torch.FloatTensor(self.num_relations, self.num_blocks, self.in_dim // self.num_blocks, self.out_dim // self.num_blocks))
-        else:
-            raise NotImplementedError(f'{self.weight_decomp} decomposition has not been implemented')
-
         # Instantiate biases
         if bias:
             self.bias = Parameter(torch.FloatTensor(self.out_features))
@@ -119,8 +84,9 @@ class RelationalGraphConvolution(Module):
         else:
             raise NotImplementedError(f'{reset_mode} parameter initialisation method has not been implemented')
 
-    def forward(self, ques_embed, adj_list_emb, deg, batch_size, original_nodes_emb): # features
-        """ Perform a single pass of message propagation
+    def forward(self, ques_embed, adj_list, deg, batch_size, original_nodes):
+        """
+        Perform a single pass of message propagation.
 
         original_nodes.shape: (b,n_rounds, n_nodes, numb_emb)
         adj_list.shape: (b,n_rounds, n_nodes, n_neighbours, numb_emb)
@@ -130,69 +96,31 @@ class RelationalGraphConvolution(Module):
 
 
         in_dim = self.in_features
-        triples = self.triples
         out_dim = self.out_features
-        edge_dropout = self.edge_dropout
-        weight_decomp = self.weight_decomp
-        num_nodes = self.num_nodes
         num_relations = self.num_relations
-        vertical_stacking = self.vertical_stacking
-        general_edge_count = int((triples.size(0) - num_nodes)/2) # remove self relations and divide by 2 because of bidirectional
-        self_edge_count = num_nodes # self relations
+        num_rounds = ques_embed.shape[1]
 
         # Choose weights
-        if weight_decomp is None:
-            weights = self.weights
-        elif weight_decomp == 'basis':
-            weights = torch.einsum('rb, bio -> rio', self.comps, self.bases)
-        elif weight_decomp == 'block':
-            weights = block_diag(self.blocks)
+        weights = torch.einsum('rb, bio -> rio', self.comps, self.bases)
+        
+        # Apply normalization
+        # compute node degrees
+        norm=deg.float()
+        norm[norm.nonzero(as_tuple=True)]= torch.pow(norm[norm.nonzero(as_tuple=True)],-1)
+        # norm = 1 / deg # shape: (b,n_rounds,n_nodes*n_rels)
         
 
-
-        # Stack adjacency matrices either vertically or horizontally
-        # adj_indices, adj_size = stack_matrices(
-        #     triples,
-        #     num_nodes,
-        #     num_relations,
-        #     vertical_stacking=vertical_stacking,
-        #     device=device
-        # )
-        num_triples = adj_indices.size(0)
-        vals = torch.ones(num_triples, dtype=torch.float, device=device)
-
-        # Apply normalization - compute the weights W_r^(l)
-        sums = sum_sparse(adj_indices, vals, adj_size, row_normalisation=vertical_stacking, device=device)
+        assert weights.size() == (num_relations, in_dim, out_dim) # shape: (n_rels,numb_size,lstm_hidden_size)
         
-        vals = vals / sums
-
-        # Construct adjacency matrix
-        adj = torch.cuda.sparse.FloatTensor(indices=adj_indices.t(), values=vals, size=adj_size)
-
-        if self.diag_weight_matrix:
-            assert weights.size() == (num_relations, in_dim)
-        else:
-            assert weights.size() == (num_relations, in_dim, out_dim)
-
-        # if self.in_features is None:
-        #     # Message passing if no features are given
-        #     output = torch.mm(adj, weights.view(num_relations * in_dim, out_dim))
-        # elif self.diag_weight_matrix:
-        #     fw = torch.einsum('ij,kj->kij', features, weights)
-        #     fw = torch.reshape(fw, (self.num_relations * self.num_nodes, in_dim))
-        #     output = torch.mm(adj, fw)
-        if self.vertical_stacking:
-            # Message passing if the adjacency matrix is vertically stacked
-            af = torch.spmm(adj, features) # first sum
-            af = af.view(self.num_relations, self.num_nodes, in_dim)
-            output = torch.einsum('rio, rni -> no', weights, af) # second sum
         
-        # else:
-        #     # Message passing if the adjacency matrix is horizontally stacked
-        #     fw = torch.einsum('ni, rio -> rno', features, weights).contiguous()
-        #     output = torch.mm(adj, fw.view(self.num_relations * self.num_nodes, out_dim))
+        # Message passing for each relation
+        # af = torch.mm(adj_list, norm) # first sum
+        sum_per_rel = torch.sum(adj_list,-2)
+        sum_per_rel = (sum_per_rel*(norm.unsqueeze(-1))).view(
+            batch_size,num_rounds, self.num_relations,self.num_nodes,self.in_features) # shape: (b,n_rounds, n_rel, n_nodes, numb_size)
 
-        assert output.size() == (self.num_nodes, out_dim)
+        # sum all relations using the weights
+        output = torch.einsum('bdrni, rio -> bdno', sum_per_rel, weights) # shape: (b,n_rounds, n_nodes, lstm_hidden_size)
         
         if self.bias is not None:
             output = torch.add(output, self.bias)

@@ -126,7 +126,6 @@ if isinstance(args.gpu_ids, int):
 # device = torch.device("cuda", args.gpu_ids[0]) if args.gpu_ids[0] >= 0 else torch.device("cpu")
 device = torch.device("cpu")
 # torch.cuda.set_device(device)
-# CUDA_LAUNCH_BLOCKING=1
 
 # Print config and args.
 print(yaml.dump(config, default_flow_style=False))
@@ -215,8 +214,8 @@ decoder.embed_change = encoder.embed_change
 
 # Wrap encoder and decoder in a model
 model = EncoderDecoderModel(encoder, decoder).to(device)
-# if -1 not in args.gpu_ids:
-#     model = nn.DataParallel(model, args.gpu_ids)
+#if -1 not in args.gpu_ids:
+    #model = nn.DataParallel(model, args.gpu_ids)
 
 
 # Loss function.
