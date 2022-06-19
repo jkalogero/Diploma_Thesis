@@ -90,8 +90,8 @@ model:
   gnn: 'gat'
   slope: 0.2 # as in paper
   n_heads: 8 # used only in gat
-  gnn_dropout: 0.1
-  epoch_freeze_gnn: 1
+  gnn_dropout: 0.4
+  epoch_freeze_gnn: 10
 
 # Optimization related arguments
 solver:
