@@ -13,8 +13,8 @@ class GraphConvolution(nn.Module):
     def __init__(self, config):
         super(GraphConvolution, self).__init__()
         self.config = config
-        self.w_adj = nn.Linear(config['numberbatch_dim'], config['numberbatch_dim'])
-        self.w_gcn = nn.Linear(config['numberbatch_dim'] + config["lstm_hidden_size"], config["lstm_hidden_size"])
+        self.w_adj = nn.Linear(config['numberbatch_dim'], config['lstm_hidden_size'])
+        self.w_gcn = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
         self.w_sum = nn.Linear(config["lstm_hidden_size"], config["lstm_hidden_size"])
         
 
@@ -39,9 +39,12 @@ class GraphConvolution(nn.Module):
         adj_list = self.w_adj(adj_list)
         # adj_list.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
 
-        question = question.view(batch_size, question.shape[1],1,1,question.shape[-1]).repeat(1,1,adj_list.shape[-3],adj_list.shape[-2],1)
+        # question = question.view(batch_size, question.shape[1],1,1,question.shape[-1]).repeat(1,1,adj_list.shape[-3],adj_list.shape[-2],1)
         
-        adj_list_q = self.w_gcn(torch.cat((adj_list,question),-1))
+        # adj_list_q = self.w_gcn(torch.cat((adj_list,question),-1))
+        question = question.view(batch_size, question.shape[1],1,1,question.shape[-1])
+
+        adj_list_q = torch.softmax(self.w_gcn(question * adj_list),-2)
         # adj_list_q.shape = [b, n_rounds, n_nodes, n_rel, lstm_hidden_size]
 
         # node_embeddings = self.w_sum(torch.sum(adj_list_q,-2)) 
