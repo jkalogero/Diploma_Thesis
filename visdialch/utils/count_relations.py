@@ -17,9 +17,9 @@ adj_lists = {
 files = [DATA_DIR + 'debug_adj.h5', DATA_DIR + 'debug_adj.h5']
 
 grounded = {
-    'train': DATA_DIR + 'train_grounded.json',
+    # 'train': DATA_DIR + 'train_grounded.json',
     'val': DATA_DIR + 'val_grounded.json',
-    'test': DATA_DIR + 'test_grounded.json'
+    # 'test': DATA_DIR + 'test_grounded.json'
 }
 global_counter = {split:np.array([0 for _ in range(35)]) for split in grounded.keys()}
 output_files = {split: DATA_DIR +split+'_stats.npy' for split in grounded.keys()}
@@ -41,11 +41,11 @@ def count_relations():
 
     for split in grounded.keys():
         # get all ids
-        # with open(grounded[split]) as gr:
-        #     img_ids[split] = list(json.load(gr).keys())
+        with open(grounded[split]) as gr:
+            img_ids[split] = list(json.load(gr).keys())
 
-        # datalist = [(i,split) for i in img_ids[split]]
-        datalist = [378466,('debug')]
+        datalist = [(i,split) for i in img_ids[split]]
+        # datalist = [378466,('debug')]
         
         with Pool() as p:
             global_counter[split] = global_counter[split]  + np.array([_ for _ in tqdm(p.imap(_count_relations, datalist, 50), total=len(img_ids), desc='Counting')])
