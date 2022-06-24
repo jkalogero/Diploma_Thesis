@@ -44,7 +44,8 @@ class GraphConvolution(nn.Module):
         # adj_list_q = self.w_gcn(torch.cat((adj_list,question),-1))
         question = question.view(batch_size, question.shape[1],1,1,question.shape[-1])
 
-        adj_list_q = torch.softmax(self.w_gcn(question * adj_list),-2)
+        coef = torch.softmax(self.w_gcn(question * adj_list),-2)
+        adj_list_q = coef * adj_list
         # adj_list_q.shape = [b, n_rounds, n_nodes, n_rel, lstm_hidden_size]
 
         # node_embeddings = self.w_sum(torch.sum(adj_list_q,-2)) 
