@@ -19,10 +19,11 @@ class RelationalGraphConvolution(Module):
                 reset_mode='glorot_uniform'):
         super(RelationalGraphConvolution, self).__init__()
 
-
+        self.config = config
         self.num_nodes = config['max_nodes']
         self.num_relations = config['reduced_num_relations']*2 + 1 # bidirectional + self relation
         self.in_features = config['numberbatch_embedding_size']
+        # self.in_features = config['numberbatch_embedding_size'] + config['lstm_hidden_size']
         self.out_features = config['lstm_hidden_size']
         self.weight_decomp = config['decomposition_type']
         self.num_bases = config['num_bases']
@@ -84,13 +85,13 @@ class RelationalGraphConvolution(Module):
         else:
             raise NotImplementedError(f'{reset_mode} parameter initialisation method has not been implemented')
 
-    def forward(self, ques_embed, adj_list, deg, batch_size, original_nodes):
+    def forward(self, question, adj_list, deg, batch_size, original_nodes):
         """
         Perform a single pass of message propagation.
 
         original_nodes.shape: (b,n_rounds, n_nodes, numb_emb)
-        adj_list.shape: (b,n_rounds, n_nodes, n_neighbours, numb_emb)
-        ques_embed.shape: (b,n_rounds, lstm_hidden_size)
+        adj_list.shape: (b,n_rounds, num_relations*n_nodes, n_neighbours, numb_emb)
+        question.shape: (b,n_rounds, lstm_hidden_size)
         
         """
 
@@ -98,7 +99,7 @@ class RelationalGraphConvolution(Module):
         in_dim = self.in_features
         out_dim = self.out_features
         num_relations = self.num_relations
-        num_rounds = ques_embed.shape[1]
+        num_rounds = question.shape[1]
 
         # Choose weights
         weights = torch.einsum('rb, bio -> rio', self.comps, self.bases)
@@ -112,12 +113,17 @@ class RelationalGraphConvolution(Module):
 
         assert weights.size() == (num_relations, in_dim, out_dim) # shape: (n_rels,numb_size,lstm_hidden_size)
         
+        # concat nodes with question
+        question = question.view(batch_size,num_rounds,1,1,self.out_features).repeat(1,1,self.num_relations*self.config['max_nodes'], self.config['max_edges'],1)
+        mask = adj_list.abs().sum(dim=-1).bool() # mask that indicates empty nodes
+        adj_q = torch.cat((adj_list, question), -1) # concat question with every node
+        adj_q[~mask] = 0
         
         # Message passing for each relation
         # af = torch.mm(adj_list, norm) # first sum
-        sum_per_rel = torch.sum(adj_list,-2)
+        sum_per_rel = torch.sum(adj_q,-2)
         sum_per_rel = (sum_per_rel*(norm.unsqueeze(-1))).view(
-            batch_size,num_rounds, self.num_relations,self.num_nodes,self.in_features) # shape: (b,n_rounds, n_rel, n_nodes, numb_size)
+            batch_size,num_rounds, self.num_relations,self.num_nodes,in_dim) # shape: (b,n_rounds, n_rel, n_nodes, numb_size)
 
         # sum all relations using the weights
         output = torch.einsum('bdrni, rio -> bdno', sum_per_rel, weights) # shape: (b,n_rounds, n_nodes, lstm_hidden_size)

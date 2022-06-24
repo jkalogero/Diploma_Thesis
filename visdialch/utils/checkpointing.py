@@ -166,5 +166,5 @@ def load_checkpoint(checkpoint_pthpath):
             )
 
     # load encoder, decoder, optimizer state_dicts
-    components = torch.load(checkpoint_pthpath)
+    components = torch.load(checkpoint_pthpath, map_location=lambda storage, loc: storage)
     return components["model"], components["optimizer"]

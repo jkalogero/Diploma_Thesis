@@ -89,13 +89,11 @@ model:
 
   # external knowledge gnn related arguments
   gnn: 'rgcn'
-  slope: 0.2 # as in paper
-  n_heads: 8 # used only in gat
   gnn_dropout: 0.1
   decomposition_type: 'basis'
   num_bases: 40
   # num_blocks:
-  epoch_freeze_gnn: 1
+  epoch_freeze_gnn: 11
   
 
 # Optimization related arguments
