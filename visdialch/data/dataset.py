@@ -155,7 +155,11 @@ class VisDialDataset(Dataset):
         # adj_list = [[el[:self.config['max_edges']] for el in r] for r in adj_list] if self.config['multiple_relations'] \
         adj_list = self.select_relations(adj_list, self.config['max_nodes'], self.config['max_edges']) if self.config['multiple_relations'] \
             else self.merge_relationships(adj_list, self.config['num_relations'], self.config['max_nodes'], self.config['max_edges'])
-        adj_list_id = [[self.ext_vocabulary.to_indices([self.id2concept[c] for c in row]) for row in _round] for _round in adj_list]
+
+        if self.config['ext_knowledge_emb'] == 'numberbatch':
+            adj_list_id = [[self.ext_vocabulary.to_indices([self.id2concept[c] for c in row]) for row in _round] for _round in adj_list]
+        elif self.config['ext_knowledge_emb'] == 'transe':
+            adj_list_id = adj_list
         
 
         # Collect everything as tensors for ``collate_fn`` of dataloader to work seemlessly
@@ -553,7 +557,7 @@ class VisDialDataset(Dataset):
         
         # Keep only the relevant relations: 
         # relevant_indexes_single = [5, 7, 8, 9, 10, 11, 14, 15, 16]
-        relevant_indexes_single = [15]
+        relevant_indexes_single = [5,15]
         relevant_indexes = [i*n_nodes + node for i in relevant_indexes_single for node in range(n_nodes)] # CHECK
         adj_list = np.array(adj_list)[:,relevant_indexes,:]
         # For each round:

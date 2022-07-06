@@ -9,7 +9,7 @@ from visdialch.utils.knowledge_retrieval import KnowledgeRetrieval
 from visdialch.gnn import GNN
 
 class KBGN(nn.Module):
-    def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, numberbatch):
+    def __init__(self, config, vocabulary, ext_graph_vocabulary, glove, elmo, ext_emb):
         """
         Parameters:
         ===========
@@ -28,8 +28,8 @@ class KBGN(nn.Module):
         elmo:
             The elmo embeddings used for initization.
 
-        numberbatch:
-            The numberbatch embeddings used for initization.
+        ext_emb:
+            The ext_emb embeddings used for initization.
 
         """
         super(KBGN, self).__init__()
@@ -82,12 +82,12 @@ class KBGN(nn.Module):
         self.dropout = nn.Dropout(p=config["dropout"])
 
         # External Knowledge Graph initial node embeddings
-        self.numb_embed = nn.Embedding(
-            len(ext_graph_vocabulary), config["numberbatch_embedding_size"]
+        self.ext_node_embed = nn.Embedding(
+            len(ext_graph_vocabulary), config[config["ext_knowledge_emb"]+"_embedding_size"]
         )
-        self.ext_vocab = ext_graph_vocabulary
-        self.numb_embed.weight.data = numberbatch
-        # self.numb_embed.weight.requires_grad = False
+        # self.ext_vocab = ext_graph_vocabulary
+        self.ext_node_embed.weight.data = ext_emb
+        # self.ext_node_embed.weight.requires_grad = False
 
         self.gnn = GNN(config)
 
@@ -153,13 +153,14 @@ class KBGN(nn.Module):
         # =============================================================
         deg = torch.count_nonzero(adj_list,-1)
         # deg.shape = [b, n_rounds, n_nodes]
-        adj_list_emb = self.numb_embed(adj_list)
+        adj_list_emb = self.ext_node_embed(adj_list)
+
         # adj_list_emb.shape = [b, n_rounds, n_nodes, n_rel, emb_size]
         
         original_nodes_emb = None
         if 'original_nodes' in batch:
             original_nodes = batch['original_nodes']
-            original_nodes_emb = self.numb_embed(original_nodes)
+            original_nodes_emb = self.ext_node_embed(original_nodes)
 
         # =============================================================
         # Construct semantic graph

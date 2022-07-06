@@ -18,6 +18,9 @@ dataset:
   elmo_visdial_path: 'data/elmo_visdial.json.npy'
   glove_visdial_path: 'data/glove_visdial.json.npy'
   numberbatch_visdial_path: 'data/numberbatch_visdial.npy'
+  transe_ent: 'data/transe/pad_glove.transe.sgd.ent.npy'
+  transe_rel: 'data/transe/pad_glove.transe.sgd.rel.npy'
+  ext_knowledge_emb: 'numberbatch'  # 'transe'
   # numberbatch_visdial_path: 'data/debug_numberbatch_visdial.json.npy'
 
   
@@ -61,12 +64,13 @@ model:
   lstm_num_layers: 2
   dropout: 0.5
   # ext_dropout: 0.5
-  numberbatch_dim: 300
-  transe_dim: 100
+  ext_knowledge_emb: 'numberbatch'  # 'transe'
+  
 
   glove_embedding_size: 300
   elmo_embedding_size: 1024
   numberbatch_embedding_size: 300
+  transe_embedding_size: 100
 
   caption_word_size_out1: 256
   caption_lstm_numlayers_1: 2

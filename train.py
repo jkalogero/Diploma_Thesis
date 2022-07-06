@@ -190,11 +190,11 @@ elmo_token = torch.Tensor(np.load(config["dataset"]["elmo_visdial_path"])).view(
 ext_graph_vocabulary = Vocabulary(
     config["dataset"]["ext_word_counts_json"], min_count=0
 )
-numb_token = torch.Tensor(np.load(config["dataset"]["numberbatch_visdial_path"])).view(len(ext_graph_vocabulary), -1)
-
+emb_file = config["dataset"]["numberbatch_visdial_path"] if config['dataset']['ext_knowledge_emb'] == 'numberbatch' else config['dataset']['transe_ent']
+numb_token = torch.Tensor(np.load(emb_file))
+# numb_token = torch.Tensor(np.load(emb_file)).view(len(ext_graph_vocabulary), -1)
 # Pass vocabulary to construct Embedding layer.
 # if not args.numberbatch:
-print('\n\nlen(ext_graph_vocabulary) = ', len(ext_graph_vocabulary))
 encoder = Encoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
 decoder = Decoder(config["model"], train_dataset.vocabulary, glove_token, elmo_token, False)
 # decoder = Decoder(config["model"], train_dataset.vocabulary, ext_graph_vocabulary, glove_token, elmo_token, numb_token)
