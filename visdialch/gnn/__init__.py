@@ -1,5 +1,6 @@
 from visdialch.gnn.gcn import GraphConvolution
 from visdialch.gnn.gat import GraphAttentionNetwork
+from visdialch.gnn.gat_q import GraphAttentionNetworkQ
 from visdialch.gnn.rgcn import RelationalGraphConvolution
 from visdialch.gnn.message_passing import MessagePassing
 
@@ -7,6 +8,7 @@ def GNN(model_config, *args):
     name_gnn_map = {
         'gcn': GraphConvolution,
         'gat': GraphAttentionNetwork,
+        'gatq': GraphAttentionNetworkQ,
         'rgcn':  RelationalGraphConvolution,
         'message_passing': MessagePassing
     }

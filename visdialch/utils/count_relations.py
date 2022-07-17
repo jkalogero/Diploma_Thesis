@@ -9,17 +9,17 @@ DATA_DIR = '/home/jkalogero/KBGN-Implementation/data/'
 adj_lists = {
     'train': DATA_DIR + 'train_adj_list.h5',
     'val': DATA_DIR + 'val_adj_list.h5',
-    'test': DATA_DIR + 'test_adj_list.h5',
-    'debug': DATA_DIR + 'debug_adj.h5'
+    'test': DATA_DIR + 'test_adj_list.h5'
+    # 'debug': DATA_DIR + 'debug_adj.h5'
 }
 
 
 files = [DATA_DIR + 'debug_adj.h5', DATA_DIR + 'debug_adj.h5']
 
 grounded = {
-    # 'train': DATA_DIR + 'train_grounded.json',
+    'train': DATA_DIR + 'train_grounded.json',
     'val': DATA_DIR + 'val_grounded.json',
-    # 'test': DATA_DIR + 'test_grounded.json'
+    'test': DATA_DIR + 'test_grounded.json'
 }
 global_counter = {split:np.array([0 for _ in range(35)]) for split in grounded.keys()}
 output_files = {split: DATA_DIR +split+'_stats.npy' for split in grounded.keys()}

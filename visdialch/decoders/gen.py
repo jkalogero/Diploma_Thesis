@@ -140,7 +140,7 @@ class GenerativeDecoder(nn.Module):
                 ans_word_scores, -1, target_ans_out.unsqueeze(-1)
             ).squeeze()
             ans_word_scores = (
-                ans_word_scores * (target_ans_out > 0).float().cuda()
+                ans_word_scores * (target_ans_out > 0).float().to(target_ans_out.device)
             )  # ugly
             ans_scores = torch.sum(ans_word_scores, -1)
             ans_scores = ans_scores.view(batch_size, num_rounds, num_options)
