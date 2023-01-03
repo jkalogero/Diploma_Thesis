@@ -28,7 +28,8 @@ class VisDialDataset(Dataset):
                  return_options: bool = True,
                  add_boundary_toks: bool = False,
                  sample_graph: bool = True,
-                 load_dialog: bool = False):
+                 load_dialog: bool = False,
+                 val: bool = False):
 
         super().__init__()
         self.config = config
@@ -69,7 +70,7 @@ class VisDialDataset(Dataset):
         self.image_ids = list(self.dialogs_reader.dialogs.keys())
         if overfit:
             self.image_ids = self.image_ids[:5]
-        
+
         self.adj_list_reader = AdjacencyListReader(dialogs_adj)
         with open(config['conceptnet_vocab_file'], "r", encoding="utf8") as fin:
             self.id2concept = [w.strip() for w in fin]
@@ -190,7 +191,7 @@ class VisDialDataset(Dataset):
             # pad rounds
             original_nodes_id = np.pad(original_nodes_id, ((0,10-item["num_rounds"]), (0,0)))
             item['original_nodes'] = torch.tensor(original_nodes_id).long()
-            # print("item['original_nodes']: ", item['original_nodes'])
+
 
         if self.return_options:
             if self.add_boundary_toks:

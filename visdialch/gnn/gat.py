@@ -83,9 +83,9 @@ class GraphAttentionNetwork(nn.Module):
         self.nheads = config['n_heads']
         self.out_features = config["lstm_hidden_size"]
 
-        self.attentions = [GraphAttentionLayer(config,  concat=True) for _ in range(self.nheads)]
-        for i, attention in enumerate(self.attentions):
-            self.add_module('attention_{}'.format(i), attention)
+        self.attentions = nn.ModuleList([GraphAttentionLayer(config,  concat=True) for _ in range(self.nheads)])
+        # for i, attention in enumerate(self.attentions):
+        #     self.add_module('attention_{}'.format(i), attention)
         
         self.out_w = nn.Parameter(torch.empty(size=(self.nheads*self.out_features, self.out_features)))
         nn.init.xavier_uniform_(self.out_w.data, gain=1.414)

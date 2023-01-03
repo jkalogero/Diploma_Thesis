@@ -19,7 +19,6 @@ dataset:
   glove_visdial_path: 'data/glove_visdial.json.npy'
   numberbatch_visdial_path: 'data/numberbatch_visdial.npy'
   # numberbatch_visdial_path: 'data/debug_numberbatch_visdial.json.npy'
-  ext_knowledge_emb: 'numberbatch'  # 'transe'
 
   
   tokenized_questions_train: 'data/tokenized_questions_train.json'
@@ -54,7 +53,7 @@ dataset:
 # Model related arguments
 model:
   encoder: 'kbgn'
-  decoder: 'gen'
+  decoder: 'disc'
 
   img_feature_size: 2048
   word_embedding_size: 300
@@ -86,9 +85,9 @@ model:
   max_edges: 45
   max_nodes: 45
   return_original: true
-  ext_knowledge_emb: 'numberbatch'  # 'transe'
+
   # external knowledge gnn related arguments
-  gnn: 'gatq'
+  gnn: 'gat'
   slope: 0.2 # as in paper
   n_heads: 8 # used only in gat
   gnn_dropout: 0.1
@@ -96,10 +95,10 @@ model:
 
 # Optimization related arguments
 solver:
-  batch_size: 3
+  batch_size: 4
   num_epochs: 10 # was 16
   initial_lr: 1e-3
-  training_splits: "train"
+  training_splits: "train"  # "trainval"
   lr_gamma: 0.1
   lr_milestones:
     - 5

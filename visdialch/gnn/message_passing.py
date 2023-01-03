@@ -29,6 +29,7 @@ class MessagePassing(nn.Module):
         batch_size, n_rounds, _ = ques_embed.shape
 
         # create edges by concatenating the neighbouring nodes
+        original_nodes = original_nodes.unsqueeze(-2).repeat(1,1,1,self.config['max_edges'],1)
         edges = torch.cat(
             (original_nodes.unsqueeze(-2).repeat(1,1,1,self.config['max_edges'],1), adj_list),
             -1

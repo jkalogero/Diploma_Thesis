@@ -93,7 +93,7 @@ class GraphAttentionNetworkQ(nn.Module):
         self.nheads = config['n_heads']
         self.out_features = config["lstm_hidden_size"]
 
-        self.attentions = [GraphAttentionLayer(config,  concat=True) for _ in range(self.nheads)]
+        self.attentions = nn.ModuleList([GraphAttentionLayer(config,  concat=True) for _ in range(self.nheads)])
         for i, attention in enumerate(self.attentions):
             self.add_module('attention_{}'.format(i), attention)
         
