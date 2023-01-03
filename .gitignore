@@ -1,4 +1,4 @@
-# KBGN-Implementation/data/*
+# Diploma_Thesis/data/*
 # __pycache__/
 # *.ipynb*
 # *checkpoint*
@@ -12,7 +12,7 @@
 # *_err
 # data
 
-KBGN-Implementation/data/*
+Diploma_Thesis/data/*
 __pycache__/
 *.ipynb*
 *checkpoint*

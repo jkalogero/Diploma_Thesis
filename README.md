@@ -1,1 +1,1 @@
-# KBGN-Implementation
+# Diploma_Thesis

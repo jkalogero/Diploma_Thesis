@@ -3,7 +3,7 @@ import numpy as np
 import getpass
 
 username = getpass.getuser()
-DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
+DATA_DIR = '/home/'+username+'/Diploma_Thesis/data/'
 data_path = DATA_DIR + 'visdial_1.0_train.json'
 
 with open(data_path, 'r', encoding='utf-8') as fin:

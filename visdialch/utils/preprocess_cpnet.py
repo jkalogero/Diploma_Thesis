@@ -37,7 +37,7 @@ EXTRA_TOKS = [EOS_TOK, UNK_TOK, PAD_TOK, SEP_TOK]
 # ==================================================================================
 username = getpass.getuser()
 WORKING_DIR = os.getcwd()
-DATA_DIR = '/home/'+username+'/KBGN-Implementation/data/'
+DATA_DIR = '/home/'+username+'/Diploma_Thesis/data/'
 
 
 splits = ['test']
@@ -288,7 +288,7 @@ def main():
     # if args.debug:
     #     global splits
     #     splits = ['train']
-    #     sub_graphs_adj['train'] = '/home/'+username+'/KBGN-Implementation/data/debug_adj.h5'
+    #     sub_graphs_adj['train'] = '/home/'+username+'/Diploma_Thesis/data/debug_adj.h5'
 
     # ==================================================================================
     # Preprocess dataset files.

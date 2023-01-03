@@ -5,7 +5,7 @@ from multiprocessing import Pool
 import json
 
 
-DATA_DIR = '/home/jkalogero/KBGN-Implementation/data/'
+DATA_DIR = '/home/jkalogero/Diploma_Thesis/data/'
 adj_lists = {
     'train': DATA_DIR + 'train_adj_list.h5',
     'val': DATA_DIR + 'val_adj_list.h5',
