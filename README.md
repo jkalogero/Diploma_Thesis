@@ -62,7 +62,7 @@ Some useful flags of training script are:
 | `--save-dirpath` | Path of directory to create checkpoint directory and save checkpoints. |
 | `--load-pthpath` | To continue training, path to .pth file of saved checkpoint. |
 
-Please refer to the training script [training.py][8] to see the all the available flags.
+Please refer to the training script [training.py][7] to see the all the available flags.
 
 ### Saving model checkpoints
 
@@ -93,7 +93,7 @@ python evaluate.py --config-yml /path/to/config.yml --load-pthpath /path/to/my_c
 
 The flag `--split` specifies which split to evaluate upon.
 
-Please refer to the evaluation script [evaluate.py][11] to see the all the available flags.
+Please refer to the evaluation script [evaluate.py][9] to see the all the available flags.
 
 
 
@@ -104,8 +104,7 @@ Please refer to the evaluation script [evaluate.py][11] to see the all the avail
 [3]: https://github.com/peteanderson80/bottom-up-attention
 [4]: https://github.com/jz462/Large-Scale-VRD.pytorch
 [5]: https://allennlp.org/elmo
-[7]: https://github.com/stanfordnlp/GloVe
-[8]: https://github.com/jkalogero/Diploma_Thesis/blob/main/train.py
-[9]: https://www.github.com/lanpa/tensorboardX
-[10]: https://github.com/batra-mlp-lab/visdial-challenge-starter-pytorch
-[11]: https://github.com/jkalogero/Diploma_Thesis/blob/main/evaluate.py
+[6]: https://github.com/stanfordnlp/GloVe
+[7]: https://github.com/jkalogero/Diploma_Thesis/blob/main/train.py
+[8]: https://www.github.com/lanpa/tensorboardX
+[9]: https://github.com/jkalogero/Diploma_Thesis/blob/main/evaluate.py
