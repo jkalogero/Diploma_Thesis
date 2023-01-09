@@ -4,7 +4,7 @@ Author: Ioannis Kalogeropoulos
 
 Supervisor: [Prof. Alexandros Potamianos](https://www.ece.ntua.gr/en/staff/188)
 
-A brief presentation of the project can be found [here](jkalogero.github.io/thesis).
+A brief presentation of the project can be found [here](https://jkalogero.github.io/thesis/).
 
 [Thesis page](http://artemis.cslab.ece.ntua.gr:8080/jspui/handle/123456789/18425?locale=en)
 
